@@ -82,7 +82,7 @@ def run(
     except KeyboardInterrupt:
         click.echo("\nAborted.", err=True)
         sys.exit(1)
-    except (ConnectionError, TimeoutError, ValueError, RuntimeError) as e:
+    except (ConnectionError, TimeoutError, ValueError, RuntimeError, TypeError) as e:
         click.echo(f"Error: {e}", err=True)
         sys.exit(1)
 
