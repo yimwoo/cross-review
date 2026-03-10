@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.12", "3.13"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: pip install -e ".[dev]"
+
+      - name: Black (formatting)
+        run: black --check src/ tests/
+
+      - name: Flake8 (linting)
+        run: flake8 src/ tests/
+
+      - name: Pylint
+        run: pylint src/cross_review/
+
+      - name: Mypy (type checking)
+        run: mypy src/cross_review/
+
+      - name: Bandit (security)
+        run: bandit -r src/cross_review/
+
+      - name: Pytest
+        run: pytest tests/ -v
