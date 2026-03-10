@@ -1,4 +1,4 @@
-"""Provider adapter protocol and factory. Ref: design doc \u00a719.2."""
+"""Provider adapter protocol and factory. Ref: design doc §19.2."""
 
 from __future__ import annotations
 
@@ -7,35 +7,37 @@ from typing import Protocol, Type, runtime_checkable
 
 from pydantic import BaseModel
 
+from cross_review.config import ProviderEntry, _default_providers_factory
 from cross_review.schemas import TokenUsage
 
-# Environment variable name for each provider's API key
-_PROVIDER_KEY_ENVVAR: dict[str, str] = {
-    "claude": "ANTHROPIC_API_KEY",
-    "openai": "OPENAI_API_KEY",
-    "gemini": "GEMINI_API_KEY",
-}
+_SUPPORTED_PROVIDER_TYPES = ("anthropic", "google", "openai_compatible")
 
 
-def check_api_key(provider_name: str) -> None:
-    """Raise a clear error if the API key for *provider_name* is not set.
+def _normalise_registry(
+    providers: dict[str, ProviderEntry] | None = None,
+) -> dict[str, ProviderEntry]:
+    """Return the provider registry with lowercased keys."""
+    source = providers if providers is not None else _default_providers_factory()
+    return {name.lower(): entry for name, entry in source.items()}
 
-    Args:
-        provider_name: One of ``"claude"``, ``"openai"``, or ``"gemini"``.
 
-    Raises:
-        RuntimeError: If the required environment variable is missing or empty.
-    """
+def check_api_key(
+    provider_name: str,
+    providers: dict[str, ProviderEntry] | None = None,
+) -> None:
+    """Raise a clear error if the API key for *provider_name* is not set."""
     normalised = provider_name.lower().strip()
-    env_var = _PROVIDER_KEY_ENVVAR.get(normalised)
-    if env_var is None:
+    registry = _normalise_registry(providers)
+    entry = registry.get(normalised)
+    if entry is None or entry.api_key_env is None:
         return  # unknown provider; let create_provider handle it
-    value = os.environ.get(env_var, "").strip()
+
+    value = os.environ.get(entry.api_key_env, "").strip()
     if not value:
         raise RuntimeError(
             f"Missing API key for {provider_name}. "
-            f"Set the {env_var} environment variable.\n"
-            f"  export {env_var}=<your-key>"
+            f"Set the {entry.api_key_env} environment variable.\n"
+            f"  export {entry.api_key_env}=<your-key>"
         )
 
 
@@ -57,38 +59,64 @@ class ProviderAdapter(Protocol):
         """Return a human-readable provider name, e.g. 'claude'."""
 
 
-def create_provider(provider_name: str, model: str) -> ProviderAdapter:
-    """Instantiate a provider adapter by name.
-
-    Args:
-        provider_name: One of ``"claude"``, ``"openai"``, or ``"gemini"``.
-        model: The model identifier to use (e.g. ``"claude-sonnet-4-5-20250514"``).
-
-    Returns:
-        A concrete ProviderAdapter instance.
-
-    Raises:
-        ValueError: If *provider_name* is not recognised.
-    """
+def create_provider(
+    provider_name: str,
+    model: str | None,
+    providers: dict[str, ProviderEntry] | None = None,
+) -> ProviderAdapter:
+    """Instantiate a provider adapter from the merged registry."""
     normalised = provider_name.lower().strip()
-    check_api_key(normalised)
+    registry = _normalise_registry(providers)
+    entry = registry.get(normalised)
+    if entry is None:
+        supported = ", ".join(sorted(registry))
+        raise ValueError(f"Unknown provider {provider_name!r}. Supported: {supported}.")
 
-    if normalised == "claude":
+    resolved_model = model or entry.default_model
+    if resolved_model is None:
+        raise RuntimeError(
+            f"No model specified for provider '{provider_name}'. "
+            "Pass a model explicitly or set default_model in the provider registry."
+        )
+
+    check_api_key(normalised, registry)
+
+    if entry.type == "anthropic":
         # pylint: disable-next=import-outside-toplevel
         from cross_review.providers.claude import ClaudeAdapter
 
-        return ClaudeAdapter(model=model)
+        return ClaudeAdapter(model=resolved_model)
 
-    if normalised == "openai":
-        # pylint: disable-next=import-outside-toplevel
-        from cross_review.providers.openai_adapter import OpenAIAdapter
-
-        return OpenAIAdapter(model=model)
-
-    if normalised == "gemini":
+    if entry.type == "google":
         # pylint: disable-next=import-outside-toplevel
         from cross_review.providers.gemini import GeminiAdapter
 
-        return GeminiAdapter(model=model)
+        return GeminiAdapter(model=resolved_model)
 
-    raise ValueError(f"Unknown provider {provider_name!r}. Supported: claude, openai, gemini.")
+    if entry.type == "openai_compatible":
+        if entry.base_url is None:
+            raise RuntimeError(
+                f"Provider '{provider_name}' is openai_compatible but has no base_url configured."
+            )
+
+        if normalised == "openai":
+            # pylint: disable-next=import-outside-toplevel
+            from cross_review.providers.openai_adapter import OpenAIAdapter
+
+            return OpenAIAdapter(model=resolved_model)
+
+        # pylint: disable-next=import-outside-toplevel
+        from cross_review.providers.openai_compatible import OpenAICompatibleAdapter
+
+        return OpenAICompatibleAdapter(
+            base_url=entry.base_url,
+            api_key_env=entry.api_key_env,
+            model=resolved_model,
+            provider_name=normalised,
+        )
+
+    supported_types = ", ".join(_SUPPORTED_PROVIDER_TYPES)
+    raise ValueError(
+        f"Unknown provider type {entry.type!r} for provider {provider_name!r}. "
+        f"Supported types: {supported_types}."
+    )

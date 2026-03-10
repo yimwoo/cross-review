@@ -181,6 +181,42 @@ provider = "gemini"
 model = "gemini-2.5-pro"
 ```
 
+### Custom Providers
+
+`cross-review` includes built-in provider aliases for `claude`, `openai`, `gemini`, and `ollama`. You can also register any OpenAI-compatible provider in config:
+
+```toml
+[providers.deepseek]
+type = "openai_compatible"
+base_url = "https://api.deepseek.com/v1"
+api_key_env = "DEEPSEEK_API_KEY"
+default_model = "deepseek-chat"
+
+[roles.builder]
+provider = "deepseek"
+model = "deepseek-reasoner"
+```
+
+If a provider defines `default_model`, you can omit `model` in the role:
+
+```toml
+[providers.ollama]
+type = "openai_compatible"
+base_url = "http://localhost:11434/v1"
+default_model = "gemma3:1b"
+
+[roles.builder]
+provider = "ollama"
+```
+
+For local smoke tests with Ollama:
+
+```bash
+export OLLAMA_SMOKE=1
+export OLLAMA_MODEL=gemma3:1b
+pytest tests/test_e2e_ollama.py -v
+```
+
 ### Environment Variable Overrides
 
 ```bash

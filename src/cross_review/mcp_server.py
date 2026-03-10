@@ -100,6 +100,11 @@ async def handle_cross_review(  # pylint: disable=too-many-locals
     )
 
     config = load_config()
+    api_key_vars = tuple(
+        entry.api_key_env
+        for entry in getattr(config, "providers", {}).values()
+        if entry.api_key_env is not None
+    )
 
     # Resolve auth mode
     provider_factory = None
@@ -107,13 +112,14 @@ async def handle_cross_review(  # pylint: disable=too-many-locals
 
     if server is not None:
         # pylint: disable=import-outside-toplevel
-        from cross_review.auth import HOST_MANAGED_WARNING, resolve_auth_mode
+        from cross_review.auth import host_managed_warning, resolve_auth_mode
 
         has_sampling = hasattr(server, "create_message")
         try:
             auth_mode = resolve_auth_mode(
                 auth_mode=request.host.auth_mode,  # pylint: disable=no-member
                 has_sampling=has_sampling,
+                api_key_vars=api_key_vars,
             )
         except RuntimeError as exc:
             return f"Error: {exc}"
@@ -127,7 +133,7 @@ async def handle_cross_review(  # pylint: disable=too-many-locals
             model_hint = "claude-sonnet-4-5-20250514"
 
             def sampling_factory(
-                provider_name: str, model: str  # pylint: disable=unused-argument
+                provider_name: str, model: str | None  # pylint: disable=unused-argument
             ) -> SamplingAdapter:
                 return SamplingAdapter(
                     server=server,
@@ -136,7 +142,7 @@ async def handle_cross_review(  # pylint: disable=too-many-locals
                 )
 
             provider_factory = sampling_factory
-            host_warning = HOST_MANAGED_WARNING
+            host_warning = host_managed_warning(api_key_vars)
 
             # Cap reviewers to 1 in host-managed mode
             # pylint: disable=assigning-non-slot,no-member

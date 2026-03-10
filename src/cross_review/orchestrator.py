@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from functools import partial
 from typing import Callable, Optional
 
 from pydantic import BaseModel
@@ -87,7 +88,8 @@ class Orchestrator:
         Application configuration (roles, budget defaults, router settings).
     provider_factory:
         Callable ``(provider_name, model) -> ProviderAdapter``.
-        Defaults to ``create_provider`` from ``providers.base``.
+        Defaults to ``create_provider`` from ``providers.base`` bound to
+        ``config.providers``.
     on_event:
         Optional callback for progress events.  Receives a single ``str``.
     """
@@ -95,11 +97,14 @@ class Orchestrator:
     def __init__(
         self,
         config: AppConfig,
-        provider_factory: Optional[Callable[[str, str], ProviderAdapter]] = None,
+        provider_factory: Optional[Callable[[str, str | None], ProviderAdapter]] = None,
         on_event: Optional[Callable[[str], None]] = None,
     ):
         self._config = config
-        self._provider_factory = provider_factory or create_provider
+        self._provider_factory = provider_factory or partial(
+            create_provider,
+            providers=self._config.providers,
+        )
         self._on_event = on_event
 
     # -- public entry point ---------------------------------------------------

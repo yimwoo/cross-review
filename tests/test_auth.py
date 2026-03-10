@@ -2,7 +2,7 @@
 
 import pytest
 
-from cross_review.auth import resolve_auth_mode, HOST_MANAGED_WARNING
+from cross_review.auth import host_managed_warning, resolve_auth_mode
 
 
 class TestResolveAuthMode:
@@ -51,17 +51,34 @@ class TestResolveAuthMode:
         result = resolve_auth_mode(auth_mode="auto", has_sampling=True)
         assert result == "provider_managed"
 
+    def test_auto_detects_custom_provider_key(self, monkeypatch):
+        """Custom provider key env vars should participate in auto detection."""
+        monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+        monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+        monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+        monkeypatch.setenv("DEEPSEEK_API_KEY", "sk-test")
+        result = resolve_auth_mode(
+            auth_mode="auto",
+            has_sampling=False,
+            api_key_vars=("DEEPSEEK_API_KEY",),
+        )
+        assert result == "provider_managed"
+
 
 class TestHostManagedWarning:
-    """Tests for the host-managed warning constant."""
+    """Tests for host-managed warning generation."""
 
     def test_warning_mentions_single_provider(self):
         """Warning should explain the limitation."""
-        assert (
-            "single-provider" in HOST_MANAGED_WARNING.lower()
-            or "Single-provider" in HOST_MANAGED_WARNING
-        )
+        warning = host_managed_warning(("OPENAI_API_KEY", "GEMINI_API_KEY"))
+        assert "single-provider" in warning.lower() or "Single-provider" in warning
 
     def test_warning_mentions_api_keys(self):
         """Warning should tell users how to upgrade."""
-        assert "API_KEY" in HOST_MANAGED_WARNING
+        warning = host_managed_warning(("OPENAI_API_KEY", "GEMINI_API_KEY"))
+        assert "API_KEY" in warning
+
+    def test_warning_handles_empty_key_list(self):
+        """Warning should stay readable when no provider keys are configured."""
+        warning = host_managed_warning(())
+        assert "Single-provider review" in warning

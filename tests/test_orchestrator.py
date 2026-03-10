@@ -2,7 +2,7 @@
 
 from unittest.mock import AsyncMock, MagicMock
 
-from cross_review.config import AppConfig, RoleConfig
+from cross_review.config import AppConfig, ProviderEntry, RoleConfig
 from cross_review.orchestrator import Orchestrator, RawReviewerOutput
 from cross_review.schemas import (
     BuilderResult,
@@ -134,6 +134,36 @@ class TestFastMode:
         result = await orch.run(request)
 
         assert result.confidence == Confidence.MEDIUM
+
+    async def test_default_provider_factory_receives_config_registry(self, monkeypatch):
+        """Default provider creation should be bound to the config provider registry."""
+        config = AppConfig()
+        config.roles["builder"] = RoleConfig(provider="custom", model=None)
+        config.providers["custom"] = ProviderEntry(
+            type="openai_compatible",
+            base_url="http://localhost:11434/v1",
+            default_model="llama3.2",
+        )
+        captured: list[tuple[str, str | None, dict | None]] = []
+
+        def fake_create_provider(provider_name: str, model: str | None, providers=None):
+            captured.append((provider_name, model, providers))
+            provider = MagicMock()
+            provider.name.return_value = f"{provider_name}:{model or 'default'}"
+
+            async def builder_call(system_prompt, user_prompt, response_schema, **kwargs):
+                return (_BUILDER_RESULT, _TOKEN_USAGE)
+
+            provider.call = AsyncMock(side_effect=builder_call)
+            return provider
+
+        monkeypatch.setattr("cross_review.orchestrator.create_provider", fake_create_provider)
+
+        orch = Orchestrator(config)
+        await orch.run(ReviewRequest(question="quick q", mode=Mode.FAST))
+
+        assert captured
+        assert captured[0][2] is config.providers
 
 
 class TestReviewMode:

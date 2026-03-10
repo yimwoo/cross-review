@@ -5,9 +5,13 @@ from unittest.mock import patch
 
 from cross_review.config import (
     AppConfig,
+    BudgetDefaults,
+    ProviderEntry,
     RoleConfig,
+    RouterConfig,
     load_config,
     load_config_from_toml_string,
+    resolve_model,
 )
 
 
@@ -18,6 +22,12 @@ from cross_review.config import (
 
 class TestDefaultConfig:
     """AppConfig() with no arguments should produce sane built-in defaults."""
+
+    def test_app_config_uses_field_factories_for_default_submodels(self):
+        fields = AppConfig.model_fields
+        assert fields["router"].default_factory is RouterConfig
+        assert fields["budget"].default_factory is BudgetDefaults
+        assert fields["roles"].default_factory is not None
 
     def test_default_router_mode_is_review(self):
         cfg = AppConfig()
@@ -60,6 +70,11 @@ class TestDefaultConfig:
         assert "pragmatist_reviewer" in cfg.roles
         assert cfg.roles["pragmatist_reviewer"].provider == "gemini"
         assert cfg.roles["pragmatist_reviewer"].model == "gemini-2.5-pro"
+
+    def test_default_config_exposes_builtin_providers(self):
+        cfg = AppConfig()
+        assert "openai" in cfg.providers
+        assert cfg.providers["ollama"].type == "openai_compatible"
 
     def test_default_roles_is_independent_copy(self):
         """Mutating one AppConfig's roles must not affect another."""
@@ -131,6 +146,30 @@ model = "claude-sonnet-4-5-20250514"
         # Default roles still present
         assert "builder" in cfg.roles
 
+    def test_toml_adds_custom_provider(self):
+        toml_str = """\
+[providers.deepseek]
+type = "openai_compatible"
+base_url = "https://api.deepseek.com/v1"
+api_key_env = "DEEPSEEK_API_KEY"
+default_model = "deepseek-chat"
+"""
+        cfg = load_config_from_toml_string(toml_str)
+        assert cfg.providers["deepseek"].api_key_env == "DEEPSEEK_API_KEY"
+
+    def test_role_model_can_be_omitted(self):
+        toml_str = """\
+[providers.ollama]
+type = "openai_compatible"
+base_url = "http://localhost:11434/v1"
+default_model = "llama3.2"
+
+[roles.builder]
+provider = "ollama"
+"""
+        cfg = load_config_from_toml_string(toml_str)
+        assert cfg.roles["builder"].model is None
+
     def test_full_toml_example(self):
         toml_str = """\
 [router]
@@ -161,6 +200,32 @@ model = "gemini-2.5-pro"
         assert cfg.budget.max_total_calls == 4
         assert cfg.roles["builder"].model == "claude-sonnet"
         assert cfg.roles["skeptic_reviewer"].model == "gpt-5"
+
+
+class TestResolveModel:
+    """resolve_model() should apply deterministic model precedence."""
+
+    def test_resolve_model_prefers_role_model(self):
+        role = RoleConfig(provider="openai", model="gpt-4.1-mini")
+        provider = ProviderEntry(type="openai_compatible", default_model="gpt-4.1")
+        assert resolve_model("builder", role, provider) == "gpt-4.1-mini"
+
+    def test_resolve_model_uses_provider_default(self):
+        role = RoleConfig(provider="ollama", model=None)
+        provider = ProviderEntry(type="openai_compatible", default_model="llama3.2")
+        assert resolve_model("builder", role, provider) == "llama3.2"
+
+    def test_resolve_model_errors_when_missing_everywhere(self):
+        role = RoleConfig(provider="custom", model=None)
+        provider = ProviderEntry(type="openai_compatible")
+        try:
+            resolve_model("builder", role, provider)
+        except RuntimeError as exc:
+            assert "No model specified" in str(exc)
+            assert "[roles.builder].model" in str(exc)
+            assert "[providers.custom].default_model" in str(exc)
+        else:
+            raise AssertionError("resolve_model() should raise when no model is configured")
 
 
 # ---------------------------------------------------------------------------

@@ -2,6 +2,7 @@
 
 import pytest
 
+from cross_review.config import AppConfig, ProviderEntry, RoleConfig, resolve_model
 from cross_review.providers.base import check_api_key, create_provider
 
 
@@ -62,3 +63,34 @@ class TestCreateProviderValidation:
         monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-test-key")
         adapter = create_provider("claude", "claude-sonnet-4-5-20250514")
         assert adapter.name() == "claude"
+
+    def test_create_provider_supports_custom_registry_entry(self):
+        """Custom providers should resolve through the supplied registry."""
+        cfg = AppConfig()
+        cfg.providers["custom"] = ProviderEntry(
+            type="openai_compatible",
+            base_url="http://localhost:11434/v1",
+            default_model="llama3.2",
+        )
+        adapter = create_provider("custom", None, cfg.providers)
+        assert adapter.name() == "custom"
+
+    def test_create_provider_uses_registry_default_model(self):
+        """Provider creation should use provider.default_model when role model is omitted."""
+        cfg = AppConfig()
+        adapter = create_provider("ollama", None, cfg.providers)
+        assert adapter.name() == "ollama"
+
+    def test_unknown_provider_lists_available_names(self):
+        """Unknown providers should raise a helpful error."""
+        with pytest.raises(ValueError, match="Supported:"):
+            create_provider("does-not-exist", None, AppConfig().providers)
+
+
+class TestResolveModel:
+    """Tests for provider model resolution helpers."""
+
+    def test_resolve_model_uses_provider_default_when_role_model_missing(self):
+        role = RoleConfig(provider="ollama", model=None)
+        provider = ProviderEntry(type="openai_compatible", default_model="llama3.2")
+        assert resolve_model("builder", role, provider) == "llama3.2"

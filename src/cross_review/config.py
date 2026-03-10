@@ -14,7 +14,7 @@ import tomllib
 from pathlib import Path
 from typing import Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 # ---------------------------------------------------------------------------
@@ -45,7 +45,16 @@ class RoleConfig(BaseModel):
     """Provider + model binding for a single role."""
 
     provider: str
-    model: str
+    model: str | None = None
+
+
+class ProviderEntry(BaseModel):
+    """Configuration for a provider registry entry."""
+
+    type: str
+    base_url: str | None = None
+    api_key_env: str | None = None
+    default_model: str | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -58,10 +67,52 @@ DEFAULT_ROLES: dict[str, RoleConfig] = {
     "pragmatist_reviewer": RoleConfig(provider="gemini", model="gemini-2.5-pro"),
 }
 
+DEFAULT_PROVIDERS: dict[str, ProviderEntry] = {
+    "claude": ProviderEntry(
+        type="anthropic",
+        api_key_env="ANTHROPIC_API_KEY",
+        default_model="claude-sonnet-4-5-20250514",
+    ),
+    "openai": ProviderEntry(
+        type="openai_compatible",
+        base_url="https://api.openai.com/v1",
+        api_key_env="OPENAI_API_KEY",
+        default_model="gpt-4.1",
+    ),
+    "gemini": ProviderEntry(
+        type="google",
+        api_key_env="GEMINI_API_KEY",
+        default_model="gemini-2.5-pro",
+    ),
+    "ollama": ProviderEntry(
+        type="openai_compatible",
+        base_url="http://localhost:11434/v1",
+        default_model="llama3.2",
+    ),
+}
+
 
 def _default_roles_factory() -> dict[str, RoleConfig]:
     """Return a deep copy of DEFAULT_ROLES so mutations are isolated."""
     return {k: v.model_copy() for k, v in DEFAULT_ROLES.items()}
+
+
+def _default_providers_factory() -> dict[str, ProviderEntry]:
+    """Return a deep copy of DEFAULT_PROVIDERS so mutations are isolated."""
+    return {k: v.model_copy() for k, v in DEFAULT_PROVIDERS.items()}
+
+
+def resolve_model(role_name: str, role: RoleConfig, provider: ProviderEntry) -> str:
+    """Resolve the model for a role using role-local config first."""
+    if role.model:
+        return role.model
+    if provider.default_model:
+        return provider.default_model
+    raise RuntimeError(
+        f"No model specified for role '{role_name}'. "
+        f"Set [roles.{role_name}].model or "
+        f"[providers.{role.provider}].default_model."
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -72,14 +123,10 @@ def _default_roles_factory() -> dict[str, RoleConfig]:
 class AppConfig(BaseModel):
     """Top-level application configuration."""
 
-    router: RouterConfig = RouterConfig()
-    budget: BudgetDefaults = BudgetDefaults()
-    roles: dict[str, RoleConfig] = None  # type: ignore[assignment]
-
-    def model_post_init(self, __context: object) -> None:
-        """Ensure roles gets a fresh copy of defaults when not provided."""
-        if self.roles is None:
-            self.roles = _default_roles_factory()
+    router: RouterConfig = Field(default_factory=RouterConfig)
+    budget: BudgetDefaults = Field(default_factory=BudgetDefaults)
+    roles: dict[str, RoleConfig] = Field(default_factory=_default_roles_factory)
+    providers: dict[str, ProviderEntry] = Field(default_factory=_default_providers_factory)
 
 
 # ---------------------------------------------------------------------------
@@ -119,7 +166,11 @@ def load_config_from_toml_string(toml_str: str) -> AppConfig:
     for name, role_data in raw.get("roles", {}).items():
         roles[name] = RoleConfig(**role_data)
 
-    return AppConfig(router=router, budget=budget, roles=roles)
+    providers = _default_providers_factory()
+    for name, provider_data in raw.get("providers", {}).items():
+        providers[name] = ProviderEntry(**provider_data)
+
+    return AppConfig(router=router, budget=budget, roles=roles, providers=providers)
 
 
 def _apply_env_overrides(cfg: AppConfig) -> AppConfig:

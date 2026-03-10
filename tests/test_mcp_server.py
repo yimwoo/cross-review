@@ -245,3 +245,30 @@ class TestHostManagedAuth:
 
         # Should not have single-provider warning
         assert "Single-provider" not in result
+
+    async def test_provider_managed_with_custom_provider_key(self, mock_orchestrator, monkeypatch):
+        """Custom provider keys from config should trigger provider-managed auth."""
+        monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+        monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+        monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+        monkeypatch.setenv("DEEPSEEK_API_KEY", "sk-test")
+
+        mock_server = MagicMock()
+        mock_server.create_message = AsyncMock()
+
+        with patch("cross_review.mcp_server.load_config") as mock_load_config:
+            cfg = MagicMock()
+            cfg.providers = {
+                "deepseek": MagicMock(api_key_env="DEEPSEEK_API_KEY"),
+            }
+            mock_load_config.return_value = cfg
+
+            with patch(
+                "cross_review.mcp_server.Orchestrator", return_value=mock_orchestrator
+            ):
+                result = await handle_cross_review(
+                    {"question": "Test"},
+                    server=mock_server,
+                )
+
+        assert "Single-provider" not in result
