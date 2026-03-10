@@ -67,11 +67,15 @@ TOOL_DEFINITION: dict[str, Any] = {
 # ---------------------------------------------------------------------------
 
 
-async def handle_cross_review(arguments: dict[str, Any]) -> str:
+async def handle_cross_review(  # pylint: disable=too-many-locals
+    arguments: dict[str, Any],
+    server: Any = None,
+) -> str:
     """Handle a cross_review tool call.
 
     Args:
         arguments: Tool arguments matching TOOL_DEFINITION inputSchema.
+        server: Optional MCP Server instance for host-managed auth.
 
     Returns:
         Rendered review result as a string.
@@ -96,12 +100,58 @@ async def handle_cross_review(arguments: dict[str, Any]) -> str:
     )
 
     config = load_config()
-    orchestrator = Orchestrator(config)
+
+    # Resolve auth mode
+    provider_factory = None
+    host_warning: str | None = None
+
+    if server is not None:
+        # pylint: disable=import-outside-toplevel
+        from cross_review.auth import HOST_MANAGED_WARNING, resolve_auth_mode
+
+        has_sampling = hasattr(server, "create_message")
+        try:
+            auth_mode = resolve_auth_mode(
+                auth_mode=request.host.auth_mode,  # pylint: disable=no-member
+                has_sampling=has_sampling,
+            )
+        except RuntimeError as exc:
+            return f"Error: {exc}"
+
+        if auth_mode == "host_managed":
+            from cross_review.providers.sampling import (
+                SamplingAdapter,
+            )
+
+            host_provider = "claude"
+            model_hint = "claude-sonnet-4-5-20250514"
+
+            def sampling_factory(
+                provider_name: str, model: str  # pylint: disable=unused-argument
+            ) -> SamplingAdapter:
+                return SamplingAdapter(
+                    server=server,
+                    host_provider=host_provider,
+                    model_hint=model or model_hint,
+                )
+
+            provider_factory = sampling_factory
+            host_warning = HOST_MANAGED_WARNING
+
+            # Cap reviewers to 1 in host-managed mode
+            # pylint: disable=assigning-non-slot,no-member
+            request.budget.max_reviewers = min(request.budget.max_reviewers, 1)
+
+    orchestrator = Orchestrator(config, provider_factory=provider_factory)
 
     try:
         result = await orchestrator.run(request)
     except (ConnectionError, TimeoutError, ValueError, RuntimeError) as exc:
         return f"Error running cross-review: {exc}"
+
+    # Inject host-managed warning
+    if host_warning is not None:
+        result.trace.warnings.append(host_warning)
 
     return render(result, output_format=output_format)
 
@@ -147,7 +197,7 @@ def run_server() -> None:
         if name != "cross_review":
             return [TextContent(type="text", text=f"Unknown tool: {name}")]
 
-        result_text = await handle_cross_review(arguments)
+        result_text = await handle_cross_review(arguments, server=server)
         return [TextContent(type="text", text=result_text)]
 
     async def _run() -> None:

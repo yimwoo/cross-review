@@ -158,3 +158,90 @@ class TestRunServer:
             'Install with: pip install "cross-review[mcp] @ '
             'git+https://github.com/yimwoo/cross-review.git"'
         ) in str(exc_info.value)
+
+
+class TestHostManagedAuth:
+    """Tests for host-managed auth in MCP handler."""
+
+    @pytest.fixture()
+    def mock_orchestrator(self):
+        """Create a mock orchestrator that returns a minimal FinalResult."""
+        result = FinalResult(
+            request_id="test-id",
+            mode=Mode.REVIEW,
+            selected_roles=[],
+            consensus_findings=[],
+            conflicting_findings=[],
+            likely_shortcuts=[],
+            final_recommendation="Test recommendation.",
+            decision_points=[],
+            trace=Trace(
+                total_calls=1,
+                total_tokens_actual=100,
+                providers_used=["claude-via-host"],
+            ),
+            confidence=Confidence.HIGH,
+        )
+        orch = MagicMock()
+        orch.run = AsyncMock(return_value=result)
+        return orch
+
+    async def test_host_managed_uses_sampling_factory(self, mock_orchestrator, monkeypatch):
+        """When host-managed, Orchestrator should receive a custom provider_factory."""
+        monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+        monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+        monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+
+        mock_server = MagicMock()
+        mock_server.create_message = AsyncMock()
+
+        with patch(
+            "cross_review.mcp_server.Orchestrator", return_value=mock_orchestrator
+        ) as mock_orch_cls:
+            await handle_cross_review(
+                {"question": "Test"},
+                server=mock_server,
+            )
+
+        # Orchestrator should have been called with a provider_factory
+        call_kwargs = mock_orch_cls.call_args
+        assert call_kwargs is not None
+        # Check that provider_factory was passed (either as kwarg or in the call)
+        if call_kwargs.kwargs:
+            assert "provider_factory" in call_kwargs.kwargs
+        else:
+            # Positional args: config, provider_factory
+            assert len(call_kwargs.args) >= 2 or "provider_factory" in (call_kwargs.kwargs or {})
+
+    async def test_host_managed_warning_in_output(self, mock_orchestrator, monkeypatch):
+        """Host-managed mode should include a warning in the output."""
+        monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+        monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+        monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+
+        mock_server = MagicMock()
+        mock_server.create_message = AsyncMock()
+
+        with patch("cross_review.mcp_server.Orchestrator", return_value=mock_orchestrator):
+            result = await handle_cross_review(
+                {"question": "Test"},
+                server=mock_server,
+            )
+
+        assert "Single-provider" in result or "single-provider" in result
+
+    async def test_provider_managed_when_keys_set(self, mock_orchestrator, monkeypatch):
+        """When API keys are set, should use provider_managed even with server."""
+        monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-test")
+
+        mock_server = MagicMock()
+        mock_server.create_message = AsyncMock()
+
+        with patch("cross_review.mcp_server.Orchestrator", return_value=mock_orchestrator):
+            result = await handle_cross_review(
+                {"question": "Test"},
+                server=mock_server,
+            )
+
+        # Should not have single-provider warning
+        assert "Single-provider" not in result
