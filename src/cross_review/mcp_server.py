@@ -101,9 +101,7 @@ async def handle_cross_review(  # pylint: disable=too-many-locals
 
     config = load_config()
     api_key_vars = tuple(
-        entry.api_key_env
-        for entry in getattr(config, "providers", {}).values()
-        if entry.api_key_env is not None
+        entry.api_key_env for entry in config.providers.values() if entry.api_key_env is not None
     )
 
     # Resolve auth mode

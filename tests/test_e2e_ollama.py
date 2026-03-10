@@ -16,7 +16,9 @@ OLLAMA_SMOKE_ENABLED = os.environ.get("OLLAMA_SMOKE") == "1"
 OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "gemma3:1b")
 
 
-@pytest.mark.skipif(not OLLAMA_SMOKE_ENABLED, reason="Set OLLAMA_SMOKE=1 to run Ollama smoke tests")
+@pytest.mark.skipif(
+    not OLLAMA_SMOKE_ENABLED, reason="Set OLLAMA_SMOKE=1 to run Ollama smoke tests"
+)
 class TestE2EOllamaSmoke:
     """Smoke coverage for a local Ollama-backed provider."""
 

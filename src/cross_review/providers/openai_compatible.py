@@ -54,6 +54,23 @@ class OpenAICompatibleAdapter:
         """Return the configured provider name."""
         return self._provider_name
 
+    @staticmethod
+    def _build_token_usage(usage: object | None) -> TokenUsage:
+        """Normalize provider usage metadata into TokenUsage."""
+        if usage is None:
+            return TokenUsage(input_tokens=0, output_tokens=0, total_tokens=0)
+
+        prompt_tokens = getattr(usage, "prompt_tokens", 0) or 0
+        completion_tokens = getattr(usage, "completion_tokens", 0) or 0
+        total_tokens = getattr(usage, "total_tokens", 0) or 0
+        if total_tokens == 0:
+            total_tokens = prompt_tokens + completion_tokens
+        return TokenUsage(
+            input_tokens=prompt_tokens,
+            output_tokens=completion_tokens,
+            total_tokens=total_tokens,
+        )
+
     async def call(  # pylint: disable=too-many-positional-arguments
         self,
         system_prompt: str,
@@ -86,20 +103,4 @@ class OpenAICompatibleAdapter:
 
         parsed = json.loads(_extract_json(content))
         result = response_schema.model_validate(parsed)
-
-        usage = response.usage
-        if usage is None:
-            token_usage = TokenUsage(input_tokens=0, output_tokens=0, total_tokens=0)
-        else:
-            prompt_tokens = getattr(usage, "prompt_tokens", 0) or 0
-            completion_tokens = getattr(usage, "completion_tokens", 0) or 0
-            total_tokens = getattr(usage, "total_tokens", 0) or 0
-            if total_tokens == 0:
-                total_tokens = prompt_tokens + completion_tokens
-            token_usage = TokenUsage(
-                input_tokens=prompt_tokens,
-                output_tokens=completion_tokens,
-                total_tokens=total_tokens,
-            )
-
-        return result, token_usage
+        return result, self._build_token_usage(response.usage)

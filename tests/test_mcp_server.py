@@ -263,9 +263,7 @@ class TestHostManagedAuth:
             }
             mock_load_config.return_value = cfg
 
-            with patch(
-                "cross_review.mcp_server.Orchestrator", return_value=mock_orchestrator
-            ):
+            with patch("cross_review.mcp_server.Orchestrator", return_value=mock_orchestrator):
                 result = await handle_cross_review(
                     {"question": "Test"},
                     server=mock_server,
