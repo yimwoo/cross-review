@@ -54,6 +54,7 @@ class ProviderEntry(BaseModel):
     type: str
     base_url: str | None = None
     api_key_env: str | None = None
+    api_key_file: str | None = None
     default_model: str | None = None
 
 

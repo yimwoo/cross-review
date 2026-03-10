@@ -157,6 +157,17 @@ default_model = "deepseek-chat"
         cfg = load_config_from_toml_string(toml_str)
         assert cfg.providers["deepseek"].api_key_env == "DEEPSEEK_API_KEY"
 
+    def test_toml_adds_provider_api_key_file(self):
+        toml_str = """\
+[providers.oca]
+type = "openai_compatible"
+base_url = "https://oca.example.com/v1"
+api_key_file = "/tmp/oca-token"
+default_model = "oca/gpt-5.4"
+"""
+        cfg = load_config_from_toml_string(toml_str)
+        assert cfg.providers["oca"].api_key_file == "/tmp/oca-token"
+
     def test_role_model_can_be_omitted(self):
         toml_str = """\
 [providers.ollama]
