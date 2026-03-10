@@ -1,9 +1,11 @@
 """Tests for provider API key validation."""
 
+from pathlib import Path
+
 import pytest
 
 from cross_review.config import AppConfig, ProviderEntry, RoleConfig, resolve_model
-from cross_review.providers.base import check_api_key, create_provider
+from cross_review.providers.base import check_api_key, create_provider, resolve_api_key
 
 
 class TestCheckApiKey:
@@ -47,6 +49,26 @@ class TestCheckApiKey:
         monkeypatch.delenv("OPENAI_API_KEY", raising=False)
         with pytest.raises(RuntimeError, match="export OPENAI_API_KEY="):
             check_api_key("openai")
+
+    def test_resolve_api_key_reads_file_when_env_missing(
+        self, monkeypatch, tmp_path: Path
+    ):
+        """Provider tokens can be loaded from a configured file."""
+        token_file = tmp_path / "oca-token"
+        token_file.write_text("file-token\n", encoding="utf-8")
+        monkeypatch.delenv("OCA_TOKEN", raising=False)
+
+        providers = {
+            "oca": ProviderEntry(
+                type="openai_compatible",
+                base_url="https://oca.example.com/v1",
+                api_key_env="OCA_TOKEN",
+                api_key_file=str(token_file),
+                default_model="oca/gpt-5.4",
+            )
+        }
+
+        assert resolve_api_key("oca", providers) == "file-token"
 
 
 class TestCreateProviderValidation:

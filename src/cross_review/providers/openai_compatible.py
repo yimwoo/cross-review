@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import os
 import re
 from typing import Type
 
@@ -37,12 +36,11 @@ class OpenAICompatibleAdapter:
     def __init__(
         self,
         base_url: str,
-        api_key_env: str | None,
+        api_key: str | None,
         model: str,
         provider_name: str,
     ) -> None:
         """Initialize an OpenAI-compatible adapter."""
-        api_key = os.environ.get(api_key_env, "").strip() if api_key_env else ""
         self._client = openai.AsyncOpenAI(
             base_url=base_url,
             api_key=api_key or "no-key-required",

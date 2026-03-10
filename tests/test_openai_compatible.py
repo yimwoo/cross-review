@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from types import SimpleNamespace
+from unittest.mock import patch
 
 import pytest
 from pydantic import BaseModel
@@ -39,11 +40,24 @@ class TestOpenAICompatibleAdapter:
 
         adapter = OpenAICompatibleAdapter(
             base_url="http://localhost:11434/v1",
-            api_key_env=None,
+            api_key=None,
             model="llama3.2",
             provider_name="ollama",
         )
         assert adapter.name() == "ollama"
+
+    def test_uses_supplied_api_key(self):
+        from cross_review.providers.openai_compatible import OpenAICompatibleAdapter
+
+        with patch("cross_review.providers.openai_compatible.openai.AsyncOpenAI") as mock_client:
+            OpenAICompatibleAdapter(
+                base_url="https://oca.example.com/v1",
+                api_key="file-token",
+                model="oca/gpt-5.4",
+                provider_name="oca",
+            )
+
+        assert mock_client.call_args.kwargs["api_key"] == "file-token"
 
     @pytest.mark.asyncio
     async def test_call_validates_schema(self):
@@ -51,7 +65,7 @@ class TestOpenAICompatibleAdapter:
 
         adapter = OpenAICompatibleAdapter(
             base_url="http://localhost:11434/v1",
-            api_key_env=None,
+            api_key=None,
             model="llama3.2",
             provider_name="ollama",
         )
@@ -85,7 +99,7 @@ class TestOpenAICompatibleAdapter:
 
         adapter = OpenAICompatibleAdapter(
             base_url="http://localhost:11434/v1",
-            api_key_env=None,
+            api_key=None,
             model="llama3.2",
             provider_name="ollama",
         )

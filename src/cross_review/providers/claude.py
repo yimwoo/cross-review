@@ -21,14 +21,14 @@ _EXTRACT_JSON_INSTRUCTION = (
 class ClaudeAdapter:
     """Adapter that calls the Anthropic Messages API."""
 
-    def __init__(self, model: str) -> None:
+    def __init__(self, model: str, api_key: str | None = None) -> None:
         """Initialize the Claude adapter.
 
         Args:
             model: The Anthropic model identifier (e.g. ``"claude-sonnet-4-20250514"``).
         """
-        api_key = os.environ.get("ANTHROPIC_API_KEY", "")
-        self._client = anthropic.AsyncAnthropic(api_key=api_key)
+        resolved_api_key = api_key or os.environ.get("ANTHROPIC_API_KEY", "")
+        self._client = anthropic.AsyncAnthropic(api_key=resolved_api_key)
         self._model = model
 
     def name(self) -> str:

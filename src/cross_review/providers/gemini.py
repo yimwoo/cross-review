@@ -23,7 +23,7 @@ class GeminiAdapter:
     importing this module does not require the API key to be set.
     """
 
-    def __init__(self, model: str) -> None:
+    def __init__(self, model: str, api_key: str | None = None) -> None:
         """Initialize the Gemini adapter.
 
         Args:
@@ -31,6 +31,7 @@ class GeminiAdapter:
         """
         self._model = model
         self._client: Optional[object] = None
+        self._api_key = api_key
 
     def _ensure_client(self) -> object:
         """Lazily create the google.genai client on first use.
@@ -42,7 +43,7 @@ class GeminiAdapter:
             # pylint: disable-next=import-outside-toplevel
             from google import genai  # type: ignore[attr-defined]
 
-            api_key = os.environ.get("GEMINI_API_KEY", "")
+            api_key = self._api_key or os.environ.get("GEMINI_API_KEY", "")
             self._client = genai.Client(api_key=api_key)
         return self._client
 
