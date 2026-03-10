@@ -112,7 +112,21 @@ async def handle_cross_review(  # pylint: disable=too-many-locals
         # pylint: disable=import-outside-toplevel
         from cross_review.auth import host_managed_warning, resolve_auth_mode
 
-        has_sampling = hasattr(server, "create_message")
+        # Locate create_message: directly on server (legacy mcp) or on the
+        # request-scoped session (mcp >=1.26 where Server lost create_message).
+        sampling_target = None
+        if "create_message" in dir(type(server)) or "create_message" in getattr(
+            server, "__dict__", {}
+        ):
+            sampling_target = server
+        else:
+            try:
+                session = server.request_context.session
+                if hasattr(session, "create_message"):
+                    sampling_target = session
+            except (LookupError, AttributeError):
+                pass
+        has_sampling = sampling_target is not None
         try:
             auth_mode = resolve_auth_mode(
                 auth_mode=request.host.auth_mode,  # pylint: disable=no-member
@@ -134,7 +148,7 @@ async def handle_cross_review(  # pylint: disable=too-many-locals
                 provider_name: str, model: str | None  # pylint: disable=unused-argument
             ) -> SamplingAdapter:
                 return SamplingAdapter(
-                    server=server,
+                    server=sampling_target,
                     host_provider=host_provider,
                     model_hint=model or model_hint,
                 )
@@ -204,8 +218,10 @@ def run_server() -> None:
         result_text = await handle_cross_review(arguments, server=server)
         return [TextContent(type="text", text=result_text)]
 
+    init_options = server.create_initialization_options()
+
     async def _run() -> None:
         async with stdio_server() as (read_stream, write_stream):
-            await server.run(read_stream, write_stream)
+            await server.run(read_stream, write_stream, init_options)
 
     asyncio.run(_run())

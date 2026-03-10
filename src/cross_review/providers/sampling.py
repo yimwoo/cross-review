@@ -49,6 +49,22 @@ def _build_messages(user_prompt: str) -> list[Any]:
     ]
 
 
+def _build_model_preferences(model_hint: str) -> Any:
+    """Build MCP model preferences, using typed classes when available.
+
+    Falls back to a plain dict for older ``mcp`` versions.
+    """
+    try:
+        from mcp.types import (  # pylint: disable=import-outside-toplevel
+            ModelHint,
+            ModelPreferences,
+        )
+
+        return ModelPreferences(hints=[ModelHint(name=model_hint)])
+    except ImportError:
+        return {"hints": [{"name": model_hint}]}
+
+
 class SamplingAdapter:
     """Provider adapter that delegates LLM calls to the MCP host via sampling.
 
@@ -105,11 +121,12 @@ class SamplingAdapter:
             f"Required JSON schema:\n{schema_json}"
         )
 
+        model_prefs = _build_model_preferences(self._model_hint)
         result = await self._server.create_message(
             messages=_build_messages(user_prompt),
             system_prompt=full_system,
             max_tokens=max_tokens,
-            model_preferences={"hints": [{"name": self._model_hint}]},
+            model_preferences=model_prefs,
         )
 
         raw_text = result.content.text

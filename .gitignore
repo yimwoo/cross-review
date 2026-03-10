@@ -27,6 +27,9 @@ env/
 # Design docs and plans
 docs/
 
+# Claude Code (local MCP config)
+.mcp.json
+
 # OS
 .DS_Store
 Thumbs.db

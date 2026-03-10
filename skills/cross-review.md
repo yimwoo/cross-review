@@ -26,7 +26,7 @@ local reconciliation, and decision-support output.
    - If a specific file is being discussed, read it and save to a temp file
    - If recent git changes are relevant, capture `git diff` to a temp file
 
-3. **Build and run the CLI command:**
+3. **Run the CLI:**
 
    Without context:
    ```bash
@@ -37,6 +37,10 @@ local reconciliation, and decision-support output.
    ```bash
    cross-review run --mode <mode> --output markdown --context-file <path> "<question>"
    ```
+
+   If the CLI fails with a "Missing API key" error, tell the user to set the
+   required API key environment variables (ANTHROPIC_API_KEY, OPENAI_API_KEY,
+   GEMINI_API_KEY) and try again.
 
 4. **Present the results** to the user in full.
 

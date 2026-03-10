@@ -22,9 +22,20 @@ The user provides a technical question. Determine the appropriate mode:
    - When in doubt → use `review`
 3. If relevant context exists (current file being discussed, recent git diff),
    save it to a temp file and use `--context-file`
-4. Run the CLI:
+4. **Run the CLI:**
+
    ```bash
-   cr run --mode <mode> --output markdown "<question>"
+   cross-review run --mode <mode> --output markdown "<question>"
    ```
+
+   With context file:
+   ```bash
+   cross-review run --mode <mode> --output markdown --context-file <path> "<question>"
+   ```
+
+   If the CLI fails with a "Missing API key" error, tell the user to set the
+   required API key environment variables (ANTHROPIC_API_KEY, OPENAI_API_KEY,
+   GEMINI_API_KEY) and try again.
+
 5. Present the full results to the user
 6. Ask if they want to adjust mode or dig deeper on any finding
