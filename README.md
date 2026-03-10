@@ -236,17 +236,17 @@ export CROSS_REVIEW_ROUTER_DEFAULT_MODE=arbitration
 ```bash
 git clone <repo-url>
 cd cross-review
-pip install -e ".[dev]"
+make install-dev
 
-# Run tests
-pytest
+# See available commands
+make help
 
-# Run linters
-black src/ tests/
-flake8 src/ tests/
-pylint src/cross_review/
-mypy src/cross_review/
-bandit -r src/cross_review/
+# Run the same local checks as CI
+make dev-check
+
+# Build release artifacts
+make build
+make check-dist
 ```
 
 ## License
