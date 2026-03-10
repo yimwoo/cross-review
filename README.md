@@ -1,0 +1,195 @@
+# cross-review
+
+Multi-model structured technical review engine. Sends your technical question to a **Builder** (proposes a solution), then to one or more **Reviewers** (critique it), and reconciles findings locally in Python — no LLM arbitration. Produces structured decision-support output with consensus findings, conflicts, shortcut warnings, and decision points.
+
+## How It Works
+
+```text
+Question → Builder (Claude) → Reviewer(s) (OpenAI, Gemini) → Local Reconciliation → Structured Output
+```
+
+**Default roles:**
+
+| Role | Provider | Model |
+|------|----------|-------|
+| Builder | Claude | claude-sonnet-4-5 |
+| Skeptic Reviewer | OpenAI | gpt-4.1 |
+| Pragmatist Reviewer | Gemini | gemini-2.5-pro |
+
+## Installation
+
+```bash
+pip install cross-review
+```
+
+For MCP server support:
+
+```bash
+pip install cross-review[mcp]
+```
+
+For development:
+
+```bash
+pip install cross-review[dev]
+```
+
+## API Keys
+
+Set the API keys for the providers you want to use:
+
+```bash
+export ANTHROPIC_API_KEY=sk-ant-...
+export OPENAI_API_KEY=sk-...
+export GEMINI_API_KEY=...
+```
+
+## Usage
+
+### CLI
+
+```bash
+# Default review mode (Builder + 1 Reviewer)
+cross-review run "Design a caching layer for a multi-tenant SaaS app"
+
+# Fast mode (Builder only, 1 LLM call)
+cross-review run --mode fast "Name this service"
+
+# Arbitration mode (Builder + all Reviewers in parallel)
+cross-review run --mode arbitration "Design the auth flow for production"
+
+# JSON output
+cross-review run --output json "Design a rate limiter"
+
+# Include a file as context
+cross-review run --context-file schema.sql "Review this database schema"
+
+# Custom config
+cross-review run --config ./my-config.toml "Review this API design"
+```
+
+### Execution Modes
+
+| Mode | LLM Calls | When to Use |
+|------|-----------|-------------|
+| `fast` | 1 (Builder only) | Brainstorming, naming, low-risk tasks |
+| `review` | 2 (Builder + Skeptic) | Design review, API planning, schema choices (default) |
+| `arbitration` | 3+ (Builder + all Reviewers) | Auth, security, production architecture, migrations |
+
+### Claude Code — Slash Command
+
+Copy the command file into your Claude Code commands directory:
+
+```bash
+# User-level (available in all projects)
+mkdir -p ~/.claude/commands
+cp commands/cr.md ~/.claude/commands/cr.md
+
+# Or project-level (available in this project only)
+mkdir -p .claude/commands
+cp commands/cr.md .claude/commands/cr.md
+```
+
+Then use it in Claude Code:
+
+```bash
+/cr "Design a production-ready caching layer"
+```
+
+### Claude Code — MCP Server
+
+Add to your Claude Code settings (`~/.claude/settings.json`):
+
+```json
+{
+  "mcpServers": {
+    "cross-review": {
+      "command": "cross-review",
+      "args": ["mcp"]
+    }
+  }
+}
+```
+
+Claude Code will automatically start the MCP server and expose `cross_review` as a tool. You can also use it with any other MCP-compatible host (Codex, etc.).
+
+### HOTL Skill
+
+If you use [HOTL](https://github.com/yimwoo/hotl-plugin), install the skill file:
+
+```bash
+cp skills/cross-review.md <your-hotl-skills-directory>/cross-review.md
+```
+
+Then invoke via `/hotl:cross-review "Review this architecture"`.
+
+## Configuration
+
+Configuration is loaded with the following precedence (highest to lowest):
+
+1. CLI flags
+2. Environment variables (`CROSS_REVIEW_<SECTION>_<KEY>`)
+3. Config file (`~/.config/cross-review/config.toml`)
+4. Built-in defaults
+
+### Example `config.toml`
+
+```toml
+[router]
+default_mode = "review"
+
+[budget]
+max_total_calls = 4
+max_reviewers = 2
+soft_token_limit = 20000
+hard_token_limit = 30000
+orchestration_timeout_seconds = 60
+
+[roles.builder]
+provider = "claude"
+model = "claude-sonnet-4-5-20250514"
+
+[roles.skeptic_reviewer]
+provider = "openai"
+model = "gpt-4.1"
+
+[roles.pragmatist_reviewer]
+provider = "gemini"
+model = "gemini-2.5-pro"
+```
+
+### Environment Variable Overrides
+
+```bash
+export CROSS_REVIEW_BUDGET_MAX_TOTAL_CALLS=6
+export CROSS_REVIEW_BUDGET_HARD_TOKEN_LIMIT=50000
+export CROSS_REVIEW_ROUTER_DEFAULT_MODE=arbitration
+```
+
+## Output Formats
+
+- **markdown** (default) — human-readable with sections for recommendations, findings, conflicts, and trace info
+- **json** — full structured output, machine-parseable
+- **summary** — single-line compact summary with counts
+
+## Development
+
+```bash
+git clone <repo-url>
+cd cross-review
+pip install -e ".[dev]"
+
+# Run tests
+pytest
+
+# Run linters
+black src/ tests/
+flake8 src/ tests/
+pylint src/cross_review/
+mypy src/cross_review/
+bandit -r src/cross_review/
+```
+
+## License
+
+MIT

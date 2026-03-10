@@ -1,0 +1,45 @@
+repos:
+  - repo: https://github.com/psf/black
+    rev: 24.10.0
+    hooks:
+      - id: black
+        args: [--line-length=99]
+
+  - repo: https://github.com/pycqa/flake8
+    rev: 7.1.1
+    hooks:
+      - id: flake8
+        args: [--config=Apps/cross-review/.flake8]
+
+  - repo: https://github.com/pycqa/bandit
+    rev: 1.8.3
+    hooks:
+      - id: bandit
+        args: ["-c", "Apps/cross-review/pyproject.toml", "--recursive"]
+        additional_dependencies: ["bandit[toml]"]
+
+  - repo: local
+    hooks:
+      - id: pylint
+        name: pylint
+        entry: pylint
+        language: system
+        types: [python]
+        args: ["--rcfile=Apps/cross-review/pyproject.toml"]
+
+      - id: mypy
+        name: mypy
+        entry: mypy Apps/cross-review/src/cross_review
+        language: system
+        types: [python]
+        args: ["--config-file=Apps/cross-review/pyproject.toml"]
+        pass_filenames: false
+        additional_dependencies: []
+
+      - id: pytest
+        name: pytest
+        entry: python -m pytest Apps/cross-review/tests/ -x -q
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-commit]
