@@ -104,7 +104,7 @@ class HostInfo(BaseModel):
     """Information about the host environment."""
 
     name: str = "cli"
-    auth_mode: str = "provider_managed"
+    auth_mode: str = "auto"
 
 
 # -- Request Model -------------------------------------------------------------

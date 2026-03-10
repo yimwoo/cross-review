@@ -357,3 +357,20 @@ class TestReviewerResult:
         assert result.reviewer_type == ReviewerType.SECURITY
         assert result.overall_confidence == Confidence.HIGH
         assert result.findings == []
+
+
+# ── HostInfo ──────────────────────────────────────────────────────────
+
+
+class TestHostInfo:
+    """Tests for HostInfo defaults."""
+
+    def test_default_auth_mode_is_auto(self):
+        """Default auth_mode should be auto for auto-detection."""
+        info = HostInfo()
+        assert info.auth_mode == "auto"
+
+    def test_explicit_auth_mode_respected(self):
+        """Explicit auth_mode should be preserved."""
+        info = HostInfo(auth_mode="provider_managed")
+        assert info.auth_mode == "provider_managed"
