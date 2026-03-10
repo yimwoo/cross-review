@@ -1,11 +1,12 @@
 """Tests for MCP server module."""
 
+import builtins
 import json
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from cross_review.mcp_server import handle_cross_review, TOOL_DEFINITION
+from cross_review.mcp_server import TOOL_DEFINITION, handle_cross_review, run_server
 from cross_review.schemas import Confidence, FinalResult, Mode, Trace
 
 
@@ -135,3 +136,25 @@ class TestHandleCrossReview:
 
         assert "Error" in result
         assert "Provider unavailable" in result
+
+
+class TestRunServer:
+    """Tests for MCP server startup."""
+
+    def test_missing_mcp_dependency_shows_source_install_command(self):
+        """Missing mcp dependency should recommend source install instructions."""
+        original_import = builtins.__import__
+
+        def fake_import(name, *args, **kwargs):
+            if name.startswith("mcp"):
+                raise ImportError("No module named 'mcp'")
+            return original_import(name, *args, **kwargs)
+
+        with patch("builtins.__import__", side_effect=fake_import):
+            with pytest.raises(SystemExit) as exc_info:
+                run_server()
+
+        assert (
+            'Install with: pip install "cross-review[mcp] @ '
+            'git+https://github.com/yimwoo/cross-review.git"'
+        ) in str(exc_info.value)

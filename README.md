@@ -19,19 +19,23 @@ Question → Builder (Claude) → Reviewer(s) (OpenAI, Gemini) → Local Reconci
 ## Installation
 
 ```bash
-pip install cross-review
+git clone https://github.com/yimwoo/cross-review.git
+cd cross-review
+pip install .
 ```
+
+`cross-review` is not currently published on PyPI, so `pip install cross-review` will fail. Install from source instead.
 
 For MCP server support:
 
 ```bash
-pip install cross-review[mcp]
+pip install ".[mcp]"
 ```
 
 For development:
 
 ```bash
-pip install cross-review[dev]
+pip install -e ".[dev]"
 ```
 
 ## API Keys

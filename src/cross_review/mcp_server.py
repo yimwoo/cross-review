@@ -114,7 +114,7 @@ async def handle_cross_review(arguments: dict[str, Any]) -> str:
 def run_server() -> None:
     """Start the MCP server over stdio.
 
-    Requires the ``mcp`` package (``pip install cross-review[mcp]``).
+    Requires the ``mcp`` package.
     """
     try:
         # pylint: disable=import-outside-toplevel
@@ -124,7 +124,8 @@ def run_server() -> None:
     except ImportError as exc:
         raise SystemExit(
             "MCP server requires the 'mcp' package. "
-            + "Install with: pip install cross-review[mcp]"
+            + 'Install with: pip install "cross-review[mcp] @ '
+            + 'git+https://github.com/yimwoo/cross-review.git"'
         ) from exc
 
     server = Server("cross-review")
