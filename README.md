@@ -175,6 +175,26 @@ default_model = "gemma3:1b"
 provider = "ollama"
 ```
 
+OpenAI-compatible providers can also load bearer tokens from a file. This is useful when an IDE plugin or local host handles OAuth and refreshes the token outside `cross-review`:
+
+```toml
+[providers.oca]
+type = "openai_compatible"
+base_url = "https://oca.example.com/v1"
+api_key_file = "/path/to/oca-token"
+default_model = "oca/gpt-5.4"
+
+[roles.builder]
+provider = "oca"
+model = "oca/gpt-5.4"
+
+[roles.skeptic_reviewer]
+provider = "oca"
+model = "oca/gpt-5.2"
+```
+
+If both `api_key_env` and `api_key_file` are configured, `cross-review` prefers the environment variable and falls back to the file. This keeps OAuth/login logic outside the CLI while still supporting long-lived plugin integrations.
+
 For local smoke tests with Ollama:
 
 ```bash
