@@ -31,6 +31,20 @@ class TestExtractJson:
         raw = '```json\n{"answer":"ok"}\n```'
         assert _extract_json(raw) == '{"answer":"ok"}'
 
+    def test_extract_json_reassembles_sse_completion_chunks(self):
+        from cross_review.providers.openai_compatible import _extract_json
+
+        raw = """data: {"choices":[{"delta":{"content":"{\\"answer\\":\\""}}]}
+
+data: {"choices":[{"delta":{"content":"ok"}}]}
+
+data: {"choices":[{"delta":{"content":"\\"}"}}]}
+
+data: [DONE]
+"""
+
+        assert _extract_json(raw) == '{"answer":"ok"}'
+
 
 class TestOpenAICompatibleAdapter:
     """Tests for OpenAICompatibleAdapter."""
@@ -123,6 +137,42 @@ class TestOpenAICompatibleAdapter:
         assert result.answer == "ok"
         assert usage == TokenUsage(input_tokens=0, output_tokens=0, total_tokens=0)
 
+    @pytest.mark.asyncio
+    async def test_call_accepts_sse_string_responses(self):
+        from cross_review.providers.openai_compatible import OpenAICompatibleAdapter
+
+        adapter = OpenAICompatibleAdapter(
+            base_url="https://oca.example.com/v1",
+            api_key="token",
+            model="oca/gpt-5.4",
+            provider_name="oca",
+        )
+        adapter._client = SimpleNamespace(  # pylint: disable=protected-access
+            chat=SimpleNamespace(
+                completions=SimpleNamespace(
+                    create=self._create_async_raw_result(
+                        """data: {"choices":[{"delta":{"content":"{\\"answer\\":\\""}}]}
+
+data: {"choices":[{"delta":{"content":"ok"}}]}
+
+data: {"choices":[{"delta":{"content":"\\"}"}}]}
+
+data: [DONE]
+"""
+                    )
+                )
+            )
+        )
+
+        result, usage = await adapter.call(
+            system_prompt="Return JSON",
+            user_prompt="Say ok",
+            response_schema=SampleResponse,
+        )
+
+        assert result.answer == "ok"
+        assert usage == TokenUsage(input_tokens=0, output_tokens=0, total_tokens=0)
+
     @staticmethod
     def _create_async_result(content: str, usage: object):
         async def _create(**kwargs):
@@ -130,5 +180,12 @@ class TestOpenAICompatibleAdapter:
                 choices=[SimpleNamespace(message=SimpleNamespace(content=content))],
                 usage=usage,
             )
+
+        return _create
+
+    @staticmethod
+    def _create_async_raw_result(content: str):
+        async def _create(**kwargs):
+            return content
 
         return _create

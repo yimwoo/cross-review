@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import re
-from typing import Type
+from typing import Any, Type
 
 import openai
 from pydantic import BaseModel
@@ -20,6 +20,10 @@ _EXTRACT_JSON_INSTRUCTION = (
 def _extract_json(raw_text: str) -> str:
     """Extract a JSON object from plain text or fenced Markdown."""
     stripped = raw_text.strip()
+    sse_content = _extract_sse_content(stripped)
+    if sse_content is not None:
+        stripped = sse_content.strip()
+
     if stripped.startswith("{"):
         return stripped
 
@@ -28,6 +32,52 @@ def _extract_json(raw_text: str) -> str:
         return match.group(1)
 
     return stripped
+
+
+def _extract_sse_content(raw_text: str) -> str | None:
+    """Reassemble content fragments from SSE-style chat completion chunks."""
+    if "data:" not in raw_text:
+        return None
+
+    fragments: list[str] = []
+    saw_chunk = False
+    for line in raw_text.splitlines():
+        stripped = line.strip()
+        if not stripped or not stripped.startswith("data:"):
+            continue
+
+        payload = stripped[5:].strip()
+        if not payload or payload == "[DONE]":
+            continue
+
+        saw_chunk = True
+        chunk = json.loads(payload)
+        for choice in chunk.get("choices", []):
+            delta = choice.get("delta", {})
+            content = delta.get("content")
+            if isinstance(content, str):
+                fragments.append(content)
+
+    if not saw_chunk:
+        return None
+
+    return "".join(fragments)
+
+
+def _extract_response_content(response: Any) -> str | None:
+    """Normalize chat completion content from SDK objects or raw text."""
+    if isinstance(response, str):
+        return response
+
+    choices = getattr(response, "choices", None)
+    if not choices:
+        return None
+
+    message = getattr(choices[0], "message", None)
+    if message is None:
+        return None
+
+    return getattr(message, "content", None)
 
 
 class OpenAICompatibleAdapter:
@@ -95,10 +145,10 @@ class OpenAICompatibleAdapter:
             timeout=timeout,
         )
 
-        content = response.choices[0].message.content
+        content = _extract_response_content(response)
         if content is None:
             raise ValueError(f"Empty response from {self._provider_name}")
 
         parsed = json.loads(_extract_json(content))
         result = response_schema.model_validate(parsed)
-        return result, self._build_token_usage(response.usage)
+        return result, self._build_token_usage(getattr(response, "usage", None))
