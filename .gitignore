@@ -29,6 +29,7 @@ docs/
 
 # Claude Code (local MCP config)
 .mcp.json
+.worktrees/
 
 # OS
 .DS_Store
