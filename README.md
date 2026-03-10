@@ -38,15 +38,32 @@ For development:
 pip install -e ".[dev]"
 ```
 
-## API Keys
+## Auth Modes
 
-Set the API keys for the providers you want to use:
+cross-review supports two auth modes, resolved automatically:
+
+| Mode | How it works | When it's used |
+|------|-------------|----------------|
+| `provider_managed` | Direct API calls with your keys | API keys are set |
+| `host_managed` | Delegates LLM calls to the MCP host via sampling | Running inside Claude Code (or Codex) with no API keys |
+
+**Auto-detection** (default): if API keys are set, uses `provider_managed`. If running as an MCP server inside a host with sampling support and no keys, uses `host_managed`. If neither, shows a clear error.
+
+In host-managed mode, all roles use the host's single provider (e.g. Claude via Claude Code). Reviewers are capped at 1 since same-model multi-reviewer has diminishing returns. Output includes a warning noting the single-provider limitation.
+
+### API Keys (provider-managed)
+
+For multi-provider cross-model reviews, set API keys:
 
 ```bash
 export ANTHROPIC_API_KEY=sk-ant-...
 export OPENAI_API_KEY=sk-...
 export GEMINI_API_KEY=...
 ```
+
+### No Keys Required (host-managed)
+
+When running as an MCP server inside Claude Code, no API keys are needed — cross-review automatically delegates LLM calls to the host via MCP sampling.
 
 ## Usage
 
@@ -116,6 +133,8 @@ Add to your Claude Code settings (`~/.claude/settings.json`):
 ```
 
 Claude Code will automatically start the MCP server and expose `cross_review` as a tool. You can also use it with any other MCP-compatible host (Codex, etc.).
+
+When running as an MCP server, cross-review auto-detects whether API keys are available. If not, it uses the host's own LLM via MCP sampling — no configuration needed.
 
 ### HOTL Skill
 
