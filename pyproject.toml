@@ -34,6 +34,7 @@ mcp = [
 ]
 
 [project.scripts]
+cr = "cross_review.cli:main"
 cross-review = "cross_review.cli:main"
 
 [tool.hatch.build.targets.wheel]

@@ -12,8 +12,8 @@ Question → Builder (Claude) → Reviewer(s) (OpenAI, Gemini) → Local Reconci
 
 | Role | Provider | Model |
 |------|----------|-------|
-| Builder | Claude | claude-sonnet-4-5 |
-| Skeptic Reviewer | OpenAI | gpt-4.1 |
+| Builder | Claude | claude-sonnet-4-20250514 |
+| Skeptic Reviewer | OpenAI | gpt-5.2 |
 | Pragmatist Reviewer | Gemini | gemini-2.5-pro |
 
 ## Installation
@@ -24,7 +24,7 @@ cd cross-review
 pip install .
 ```
 
-`cross-review` is not currently published on PyPI, so `pip install cross-review` will fail. Install from source instead.
+`cross-review` is not currently published on PyPI, so `pip install cross-review` will fail. Install from source instead. The install exposes both `cross-review` and the shorter `cr` command.
 
 For MCP server support:
 
@@ -71,23 +71,25 @@ When running as an MCP server inside Claude Code, no API keys are needed — cro
 
 ```bash
 # Default review mode (Builder + 1 Reviewer)
-cross-review run "Design a caching layer for a multi-tenant SaaS app"
+cr run "Design a caching layer for a multi-tenant SaaS app"
 
 # Fast mode (Builder only, 1 LLM call)
-cross-review run --mode fast "Name this service"
+cr run --mode fast "Name this service"
 
 # Arbitration mode (Builder + all Reviewers in parallel)
-cross-review run --mode arbitration "Design the auth flow for production"
+cr run --mode arbitration "Design the auth flow for production"
 
 # JSON output
-cross-review run --output json "Design a rate limiter"
+cr run --output json "Design a rate limiter"
 
 # Include a file as context
-cross-review run --context-file schema.sql "Review this database schema"
+cr run --context-file schema.sql "Review this database schema"
 
 # Custom config
-cross-review run --config ./my-config.toml "Review this API design"
+cr run --config ./my-config.toml "Review this API design"
 ```
+
+`cr` is the recommended terminal alias. `cross-review` still works and remains the canonical command for MCP/server configs.
 
 ### Execution Modes
 
@@ -170,11 +172,11 @@ orchestration_timeout_seconds = 60
 
 [roles.builder]
 provider = "claude"
-model = "claude-sonnet-4-5-20250514"
+model = "claude-sonnet-4-20250514"
 
 [roles.skeptic_reviewer]
 provider = "openai"
-model = "gpt-4.1"
+model = "gpt-5.2"
 
 [roles.pragmatist_reviewer]
 provider = "gemini"

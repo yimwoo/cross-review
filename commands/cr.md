@@ -24,7 +24,7 @@ The user provides a technical question. Determine the appropriate mode:
    save it to a temp file and use `--context-file`
 4. Run the CLI:
    ```bash
-   cross-review run --mode <mode> --output markdown "<question>"
+   cr run --mode <mode> --output markdown "<question>"
    ```
 5. Present the full results to the user
 6. Ask if they want to adjust mode or dig deeper on any finding

@@ -25,7 +25,7 @@ class ClaudeAdapter:
         """Initialize the Claude adapter.
 
         Args:
-            model: The Anthropic model identifier (e.g. ``"claude-sonnet-4-5-20250514"``).
+            model: The Anthropic model identifier (e.g. ``"claude-sonnet-4-20250514"``).
         """
         api_key = os.environ.get("ANTHROPIC_API_KEY", "")
         self._client = anthropic.AsyncAnthropic(api_key=api_key)

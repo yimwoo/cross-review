@@ -324,7 +324,7 @@ class TestMaxReviewersBudget:
         config = AppConfig()
         # Add a third reviewer role to the config
         config.roles["security_reviewer"] = RoleConfig(
-            provider="claude", model="claude-sonnet-4-5-20250514"
+            provider="claude", model="claude-sonnet-4-20250514"
         )
         # But budget only allows max_reviewers=2
         factory = _make_mock_provider_factory()

@@ -43,7 +43,7 @@ class TestDefaultConfig:
 
     def test_default_router_classifier_model(self):
         cfg = AppConfig()
-        assert cfg.router.classifier_model == "claude-haiku"
+        assert cfg.router.classifier_model == "claude-3-5-haiku-20241022"
 
     def test_default_budget_values(self):
         cfg = AppConfig()
@@ -57,13 +57,13 @@ class TestDefaultConfig:
         cfg = AppConfig()
         assert "builder" in cfg.roles
         assert cfg.roles["builder"].provider == "claude"
-        assert cfg.roles["builder"].model == "claude-sonnet-4-5-20250514"
+        assert cfg.roles["builder"].model == "claude-sonnet-4-20250514"
 
     def test_default_roles_has_skeptic_reviewer(self):
         cfg = AppConfig()
         assert "skeptic_reviewer" in cfg.roles
         assert cfg.roles["skeptic_reviewer"].provider == "openai"
-        assert cfg.roles["skeptic_reviewer"].model == "gpt-4.1"
+        assert cfg.roles["skeptic_reviewer"].model == "gpt-5.2"
 
     def test_default_roles_has_pragmatist_reviewer(self):
         cfg = AppConfig()
@@ -125,11 +125,11 @@ max_total_calls = 10
         toml_str = """\
 [roles.builder]
 provider = "openai"
-model = "gpt-4.1"
+model = "gpt-5.2"
 """
         cfg = load_config_from_toml_string(toml_str)
         assert cfg.roles["builder"].provider == "openai"
-        assert cfg.roles["builder"].model == "gpt-4.1"
+        assert cfg.roles["builder"].model == "gpt-5.2"
         # Other roles still present from defaults
         assert "skeptic_reviewer" in cfg.roles
         assert "pragmatist_reviewer" in cfg.roles
@@ -138,7 +138,7 @@ model = "gpt-4.1"
         toml_str = """\
 [roles.security_reviewer]
 provider = "claude"
-model = "claude-sonnet-4-5-20250514"
+model = "claude-sonnet-4-20250514"
 """
         cfg = load_config_from_toml_string(toml_str)
         assert "security_reviewer" in cfg.roles
@@ -207,7 +207,7 @@ class TestResolveModel:
 
     def test_resolve_model_prefers_role_model(self):
         role = RoleConfig(provider="openai", model="gpt-4.1-mini")
-        provider = ProviderEntry(type="openai_compatible", default_model="gpt-4.1")
+        provider = ProviderEntry(type="openai_compatible", default_model="gpt-5.2")
         assert resolve_model("builder", role, provider) == "gpt-4.1-mini"
 
     def test_resolve_model_uses_provider_default(self):

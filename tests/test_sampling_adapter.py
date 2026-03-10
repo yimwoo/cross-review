@@ -23,13 +23,13 @@ class TestSamplingAdapterName:
     def test_name_includes_via_host(self):
         """Name should indicate host-managed delegation."""
         adapter = SamplingAdapter(
-            server=MagicMock(), host_provider="claude", model_hint="claude-sonnet-4-5"
+            server=MagicMock(), host_provider="claude", model_hint="claude-sonnet-4-20250514"
         )
         assert adapter.name() == "claude-via-host"
 
     def test_name_with_openai_host(self):
         """Name should reflect the host provider."""
-        adapter = SamplingAdapter(server=MagicMock(), host_provider="openai", model_hint="gpt-4.1")
+        adapter = SamplingAdapter(server=MagicMock(), host_provider="openai", model_hint="gpt-5.2")
         assert adapter.name() == "openai-via-host"
 
 
@@ -52,11 +52,11 @@ class TestSamplingAdapterCall:
         mock_result = MagicMock()
         mock_result.content = MagicMock()
         mock_result.content.text = sample_response_text
-        mock_result.model = "claude-sonnet-4-5"
+        mock_result.model = "claude-sonnet-4-20250514"
         mock_server.create_message = AsyncMock(return_value=mock_result)
 
         adapter = SamplingAdapter(
-            server=mock_server, host_provider="claude", model_hint="claude-sonnet-4-5"
+            server=mock_server, host_provider="claude", model_hint="claude-sonnet-4-20250514"
         )
         result, usage = await adapter.call(
             system_prompt="You are a builder.",
@@ -73,11 +73,11 @@ class TestSamplingAdapterCall:
         mock_result = MagicMock()
         mock_result.content = MagicMock()
         mock_result.content.text = sample_response_text
-        mock_result.model = "claude-sonnet-4-5"
+        mock_result.model = "claude-sonnet-4-20250514"
         mock_server.create_message = AsyncMock(return_value=mock_result)
 
         adapter = SamplingAdapter(
-            server=mock_server, host_provider="claude", model_hint="claude-sonnet-4-5"
+            server=mock_server, host_provider="claude", model_hint="claude-sonnet-4-20250514"
         )
         await adapter.call(
             system_prompt="You are a builder.",
@@ -94,11 +94,11 @@ class TestSamplingAdapterCall:
         mock_result = MagicMock()
         mock_result.content = MagicMock()
         mock_result.content.text = sample_response_text
-        mock_result.model = "claude-sonnet-4-5"
+        mock_result.model = "claude-sonnet-4-20250514"
         mock_server.create_message = AsyncMock(return_value=mock_result)
 
         adapter = SamplingAdapter(
-            server=mock_server, host_provider="claude", model_hint="claude-sonnet-4-5"
+            server=mock_server, host_provider="claude", model_hint="claude-sonnet-4-20250514"
         )
         _, usage = await adapter.call(
             system_prompt="Test",
@@ -113,11 +113,11 @@ class TestSamplingAdapterCall:
         mock_result = MagicMock()
         mock_result.content = MagicMock()
         mock_result.content.text = "This is not JSON"
-        mock_result.model = "claude-sonnet-4-5"
+        mock_result.model = "claude-sonnet-4-20250514"
         mock_server.create_message = AsyncMock(return_value=mock_result)
 
         adapter = SamplingAdapter(
-            server=mock_server, host_provider="claude", model_hint="claude-sonnet-4-5"
+            server=mock_server, host_provider="claude", model_hint="claude-sonnet-4-20250514"
         )
         with pytest.raises((json.JSONDecodeError, ValueError)):
             await adapter.call(

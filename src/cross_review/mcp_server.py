@@ -128,7 +128,7 @@ async def handle_cross_review(  # pylint: disable=too-many-locals
             )
 
             host_provider = "claude"
-            model_hint = "claude-sonnet-4-5-20250514"
+            model_hint = "claude-sonnet-4-20250514"
 
             def sampling_factory(
                 provider_name: str, model: str | None  # pylint: disable=unused-argument

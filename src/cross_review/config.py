@@ -28,7 +28,7 @@ class RouterConfig(BaseModel):
     default_mode: str = "review"
     use_classifier: bool = False
     classifier_provider: str = "claude"
-    classifier_model: str = "claude-haiku"
+    classifier_model: str = "claude-3-5-haiku-20241022"
 
 
 class BudgetDefaults(BaseModel):
@@ -62,8 +62,8 @@ class ProviderEntry(BaseModel):
 # ---------------------------------------------------------------------------
 
 DEFAULT_ROLES: dict[str, RoleConfig] = {
-    "builder": RoleConfig(provider="claude", model="claude-sonnet-4-5-20250514"),
-    "skeptic_reviewer": RoleConfig(provider="openai", model="gpt-4.1"),
+    "builder": RoleConfig(provider="claude", model="claude-sonnet-4-20250514"),
+    "skeptic_reviewer": RoleConfig(provider="openai", model="gpt-5.2"),
     "pragmatist_reviewer": RoleConfig(provider="gemini", model="gemini-2.5-pro"),
 }
 
@@ -71,13 +71,13 @@ DEFAULT_PROVIDERS: dict[str, ProviderEntry] = {
     "claude": ProviderEntry(
         type="anthropic",
         api_key_env="ANTHROPIC_API_KEY",
-        default_model="claude-sonnet-4-5-20250514",
+        default_model="claude-sonnet-4-20250514",
     ),
     "openai": ProviderEntry(
         type="openai_compatible",
         base_url="https://api.openai.com/v1",
         api_key_env="OPENAI_API_KEY",
-        default_model="gpt-4.1",
+        default_model="gpt-5.2",
     ),
     "gemini": ProviderEntry(
         type="google",

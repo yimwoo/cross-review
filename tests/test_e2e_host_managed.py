@@ -92,7 +92,7 @@ def _make_fake_mcp_server(call_count: list[int] | None = None):
             result.content.text = _BUILDER_JSON
         else:
             result.content.text = _REVIEWER_JSON
-        result.model = "claude-sonnet-4-5"
+        result.model = "claude-sonnet-4-20250514"
         return result
 
     server = MagicMock()
@@ -294,7 +294,7 @@ class TestE2ESamplingAdapterIntegration:
             return SamplingAdapter(
                 server=server,
                 host_provider="claude",
-                model_hint=model or "claude-sonnet-4-5-20250514",
+                model_hint=model or "claude-sonnet-4-20250514",
             )
 
         config = AppConfig()
@@ -350,6 +350,6 @@ class TestE2ESamplingAdapterIntegration:
         adapter = SamplingAdapter(
             server=MagicMock(),
             host_provider="claude",
-            model_hint="claude-sonnet-4-5",
+            model_hint="claude-sonnet-4-20250514",
         )
         assert isinstance(adapter, ProviderAdapter)

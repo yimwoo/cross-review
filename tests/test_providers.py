@@ -56,12 +56,12 @@ class TestCreateProviderValidation:
         """create_provider should fail early with clear message."""
         monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
         with pytest.raises(RuntimeError, match="ANTHROPIC_API_KEY"):
-            create_provider("claude", "claude-sonnet-4-5-20250514")
+            create_provider("claude", "claude-sonnet-4-20250514")
 
     def test_create_provider_succeeds_with_key(self, monkeypatch):
         """create_provider should succeed when key is set."""
         monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-ant-test-key")
-        adapter = create_provider("claude", "claude-sonnet-4-5-20250514")
+        adapter = create_provider("claude", "claude-sonnet-4-20250514")
         assert adapter.name() == "claude"
 
     def test_create_provider_supports_custom_registry_entry(self):
