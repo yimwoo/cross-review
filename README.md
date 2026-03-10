@@ -26,6 +26,12 @@ pip install .
 
 `cross-review` is not currently published on PyPI, so `pip install cross-review` will fail. Install from source instead. The install exposes both `cross-review` and the shorter `cr` command.
 
+PyPI/TestPyPI release automation is configured in:
+- `.github/workflows/release.yml`
+- `.github/workflows/testpypi.yml`
+
+Maintainer release steps are documented in `docs/releasing.md`.
+
 For MCP server support:
 
 ```bash

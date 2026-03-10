@@ -7,7 +7,24 @@ name = "cross-review"
 version = "0.1.0"
 description = "Multi-model structured technical review engine"
 readme = "README.md"
+license = { file = "LICENSE" }
 requires-python = ">=3.11"
+authors = [
+    { name = "yimwoo" },
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development",
+    "Topic :: Software Development :: Quality Assurance",
+    "Typing :: Typed",
+]
 dependencies = [
     "pydantic>=2.0",
     "click>=8.0",
@@ -15,6 +32,11 @@ dependencies = [
     "openai>=1.50",
     "google-generativeai>=0.8",
 ]
+
+[project.urls]
+Homepage = "https://github.com/yimwoo/cross-review"
+Repository = "https://github.com/yimwoo/cross-review"
+Issues = "https://github.com/yimwoo/cross-review/issues"
 
 [project.optional-dependencies]
 dev = [
