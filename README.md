@@ -148,27 +148,7 @@ export OCA_MODEL_PRAGMATIST=oca/llama4
 
 # Or set all roles to the same model
 export OCA_MODEL=oca/openai-o3
-
-# Custom OCA endpoint
-export OCA_BASE_URL=https://your-oca-instance.example.com/v1
 ```
-
-**Available OCA models** (as of March 2026):
-
-| Model | Strengths | Good for |
-|-------|-----------|----------|
-| `oca/gpt-5.4` | Top-tier reasoning + code gen | Builder |
-| `oca/gpt-5.2` | Strong general purpose | Builder, Reviewer |
-| `oca/gpt-5.2-codex` | Code-optimized GPT | Builder (code-heavy) |
-| `oca/grok4` | Strong critique, different perspective | Skeptic Reviewer |
-| `oca/grok4-fast-reasoning` | Fast reasoning variant | Skeptic (speed priority) |
-| `oca/grok3` | Capable general model | Reviewer |
-| `oca/llama4` | Open-source, diverse training | Pragmatist Reviewer |
-| `oca/openai-o3` | Deep reasoning model | High-stakes reviews |
-| `oca/gpt-oss-120b` | Large open-source model | Reviewer |
-| `oca/gpt-5.1-codex-max` | Extended context code model | Large codebases |
-
-**Token auto-refresh:** OCA tokens expire after 1 hour. The MCP server automatically refreshes expired tokens using the refresh token stored by Cline — no manual re-login needed.
 
 **Session tips** when calling `cross_review` from Cline:
 
