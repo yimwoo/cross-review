@@ -24,26 +24,54 @@ error() { echo -e "${RED}[x]${NC} $*"; }
 # --- Step 1: Find Python ---
 info "Checking Python..."
 
+_is_valid_python() {
+    local py="$1"
+    local version major minor
+    version=$("$py" -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')" 2>/dev/null || echo "0.0")
+    major="${version%%.*}"
+    minor="${version#*.}"
+    [ "$major" -ge 3 ] && [ "$minor" -ge 11 ]
+}
+
+_is_venv_python() {
+    # Skip Python inside a virtualenv or .venv directory
+    local py_path
+    py_path="$(command -v "$1" 2>/dev/null || echo "")"
+    case "$py_path" in
+        */.venv/*|*/venv/*|*/.virtualenvs/*) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
 PYTHON=""
+# Prefer pyenv/system Python over virtualenv Python
 for candidate in python3.13 python3.12 python3.11 python3; do
     if command -v "$candidate" &>/dev/null; then
-        version=$("$candidate" -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')" 2>/dev/null || echo "0.0")
-        major="${version%%.*}"
-        minor="${version#*.}"
-        if [ "$major" -ge 3 ] && [ "$minor" -ge 11 ]; then
+        if _is_venv_python "$candidate"; then
+            continue  # Skip venv Pythons — they're tied to a specific project
+        fi
+        if _is_valid_python "$candidate"; then
             PYTHON="$candidate"
             break
         fi
     fi
 done
 
+# Fallback: if no non-venv Python found, try pyenv directly
+if [ -z "$PYTHON" ] && command -v pyenv &>/dev/null; then
+    PYENV_ROOT="$(pyenv root 2>/dev/null || echo "$HOME/.pyenv")"
+    for ver in "$PYENV_ROOT"/versions/3.*/bin/python3; do
+        [ -x "$ver" ] && _is_valid_python "$ver" && { PYTHON="$ver"; break; }
+    done
+fi
+
 if [ -z "$PYTHON" ]; then
-    error "Python >= 3.11 not found."
+    error "Python >= 3.11 not found (skipping virtualenv Pythons)."
     echo "  Install Python 3.11+ via pyenv, brew, or your package manager."
     exit 1
 fi
 
-PYTHON_PATH="$(command -v "$PYTHON")"
+PYTHON_PATH="$(command -v "$PYTHON" 2>/dev/null || echo "$PYTHON")"
 info "Using $PYTHON_PATH ($($PYTHON --version))"
 
 # --- Step 2: Install cross-review with MCP extras ---
