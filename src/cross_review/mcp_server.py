@@ -235,6 +235,10 @@ async def handle_cross_review(  # pylint: disable=too-many-locals
                 "memory_used": memory_used,
             }
 
+    # --- Inject OCA token into env early so auth resolution sees it ---
+    if oca_token is not None:
+        os.environ[OCA_TOKEN_ENV] = oca_token
+
     api_key_vars = tuple(
         entry.api_key_env for entry in config.providers.values()
         if entry.api_key_env is not None
@@ -296,10 +300,6 @@ async def handle_cross_review(  # pylint: disable=too-many-locals
             # Cap reviewers to 1 in host-managed mode
             # pylint: disable=assigning-non-slot,no-member
             request.budget.max_reviewers = min(request.budget.max_reviewers, 1)
-
-    # --- Inject OCA token into env for provider resolution ---
-    if oca_token is not None:
-        os.environ[OCA_TOKEN_ENV] = oca_token
 
     orchestrator = Orchestrator(config, provider_factory=provider_factory)
 

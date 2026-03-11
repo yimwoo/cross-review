@@ -237,7 +237,8 @@ class TestHostManagedAuth:
         mock_server.create_message = AsyncMock()
         store = SessionStore(base_dir=tmp_path)
 
-        with patch("cross_review.mcp_server.Orchestrator", return_value=mock_orchestrator):
+        with patch("cross_review.mcp_server.can_resolve_credentials", return_value=True), \
+             patch("cross_review.mcp_server.Orchestrator", return_value=mock_orchestrator):
             result = await handle_cross_review(
                 {"question": "Test"},
                 server=mock_server,
