@@ -4,6 +4,20 @@
 # Usage:  bash scripts/cr-cline-wrapper.sh [cr run arguments...]
 # Example: bash scripts/cr-cline-wrapper.sh --mode review "Design a cache"
 #
+# Model selection (env vars):
+#   OCA_MODEL           — default model for all roles  (default: oca/gpt-5.4)
+#   OCA_MODEL_BUILDER   — builder role model           (default: $OCA_MODEL)
+#   OCA_MODEL_SKEPTIC   — skeptic reviewer model       (default: $OCA_MODEL)
+#   OCA_MODEL_PRAGMATIST — pragmatist reviewer model   (default: $OCA_MODEL)
+#
+# Examples:
+#   # Use gpt-5.3-codex for building, gpt-5.4 for reviewing:
+#   OCA_MODEL_BUILDER=oca/gpt-5.3-codex OCA_MODEL_SKEPTIC=oca/gpt-5.4 \
+#     bash scripts/cr-cline-wrapper.sh --mode review "Design a cache"
+#
+#   # Use one model for everything:
+#   OCA_MODEL=oca/gpt-oss-120b bash scripts/cr-cline-wrapper.sh "Quick check"
+#
 # This script:
 #   1. Locates the OCA access token from Cline's VS Code secret storage
 #   2. Writes it to a temporary file
@@ -14,7 +28,12 @@ set -euo pipefail
 
 # --- Configuration ---
 OCA_BASE_URL="${OCA_BASE_URL:-https://code-internal.aiservice.us-chicago-1.oci.oraclecloud.com/20250206/app/litellm/v1}"
-OCA_MODEL="${OCA_MODEL:-oca/gpt-5.2}"
+OCA_MODEL="${OCA_MODEL:-oca/gpt-5.4}"
+
+# Per-role model overrides (fall back to OCA_MODEL)
+OCA_MODEL_BUILDER="${OCA_MODEL_BUILDER:-$OCA_MODEL}"
+OCA_MODEL_SKEPTIC="${OCA_MODEL_SKEPTIC:-$OCA_MODEL}"
+OCA_MODEL_PRAGMATIST="${OCA_MODEL_PRAGMATIST:-$OCA_MODEL}"
 
 # --- Temp file cleanup ---
 TMPDIR_CR=""
@@ -103,12 +122,15 @@ default_model = "${OCA_MODEL}"
 
 [roles.builder]
 provider = "oca"
+model = "${OCA_MODEL_BUILDER}"
 
 [roles.skeptic_reviewer]
 provider = "oca"
+model = "${OCA_MODEL_SKEPTIC}"
 
 [roles.pragmatist_reviewer]
 provider = "oca"
+model = "${OCA_MODEL_PRAGMATIST}"
 TOML
 
 # --- Run cross-review ---
