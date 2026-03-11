@@ -9,6 +9,43 @@ Allow users who are already signed into Oracle Code Assist through Cline to run 
 
 The primary path is a Cline-facing MCP tool backed by persisted `cross-review` sessions. A simpler shell-wrapper fallback is included for environments where MCP wiring is unavailable or harder to debug.
 
+## Intent Contract
+
+- **intent:** Enable Oracle-internal users signed into OCA through Cline to run `cross-review` via an MCP tool with persisted multi-turn sessions, without a separate login flow or VS Code extension.
+- **constraints:**
+  - No new standalone VS Code extension
+  - No generic third-party OAuth inside `cross-review`
+  - Auth reuses Cline's existing OCA login state only
+  - Session files stored outside the git workspace
+  - Provider tokens must never appear in session files or logs
+- **success_criteria:**
+  - MCP tool accepts `session_id` and returns structured results with session metadata
+  - Sessions persist across Cline/VS Code restarts
+  - Follow-up calls reuse session memory without re-injecting full history
+  - Shell-wrapper fallback produces equivalent review output
+  - Unit and integration tests pass for session lifecycle and MCP handler
+- risk_level: medium
+
+## Verification Contract
+
+- verify: `pytest tests/ -k session` — session creation, lookup, auto-reuse, branching, and memory update logic pass
+- verify: `pytest tests/ -k mcp` — MCP handler argument parsing and session-aware inputs work correctly
+- verify: `pytest tests/ -k shell_wrapper` — shell-wrapper config generation and token file handling pass
+- verify: integration test confirms first call creates a session and second call with same `session_id` continues context
+- verify: integration test confirms `new_session=true` creates a separate session
+- verify: manual smoke test with Cline logged into OCA completes a builder+reviewer round via MCP
+
+## Governance Contract
+
+- **approval_gates:**
+  - Phase 1 (session primitives + MCP contract extension) reviewed before Phase 2 begins
+  - Auth token handling code reviewed for secret leakage before merge
+  - MCP contract changes reviewed for backward compatibility before release
+- **rollback:**
+  - Revert MCP tool input schema to pre-session version if session handling introduces breaking changes
+  - Delete local session directory (`~/Library/Application Support/cross-review/sessions/` or `~/.config/cross-review/sessions/`) to reset state
+  - Shell-wrapper fallback remains functional independent of MCP session changes
+
 ## Non-Goals
 
 - Building a new standalone VS Code extension for `cross-review`
