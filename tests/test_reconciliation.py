@@ -14,7 +14,7 @@ from cross_review.schemas import (
 
 
 def _make_finding(
-    reviewer_type: ReviewerType = ReviewerType.SKEPTIC,
+    reviewer_type: ReviewerType = ReviewerType.CRITIC,
     category: FindingCategory = FindingCategory.SECURITY,
     severity: Severity = Severity.HIGH,
     target: str = "auth layer",
@@ -53,8 +53,8 @@ def _make_builder_result() -> BuilderResult:
 class TestGrouping:
     def test_same_target_category_grouped(self):
         """Two findings with same target+category are grouped. Ref: §19.3."""
-        f1 = _make_finding(reviewer_type=ReviewerType.SKEPTIC, source_model="gpt-5")
-        f2 = _make_finding(reviewer_type=ReviewerType.PRAGMATIST, source_model="gemini-2.5-pro")
+        f1 = _make_finding(reviewer_type=ReviewerType.CRITIC, source_model="gpt-5")
+        f2 = _make_finding(reviewer_type=ReviewerType.ADVISOR, source_model="gemini-2.5-pro")
         reconciler = Reconciler()
         clusters = reconciler.cluster_findings([f1, f2])
         assert len(clusters) == 1
@@ -73,12 +73,12 @@ class TestConflictDetection:
     def test_conflicting_recommendations_marked(self):
         """Conflicting recommendations on same target are marked. Ref: §19.3."""
         f1 = _make_finding(
-            reviewer_type=ReviewerType.SKEPTIC,
+            reviewer_type=ReviewerType.CRITIC,
             source_model="gpt-5",
         )
         f1 = f1.model_copy(update={"recommendation": "Add caching"})
         f2 = _make_finding(
-            reviewer_type=ReviewerType.PRAGMATIST,
+            reviewer_type=ReviewerType.ADVISOR,
             source_model="gemini-2.5-pro",
         )
         f2 = f2.model_copy(update={"recommendation": "Remove caching layer entirely"})
@@ -96,7 +96,7 @@ class TestDegradedOutput:
             builder_result=_make_builder_result(),
             reviewer_results=[
                 ReviewerResult(
-                    reviewer_type=ReviewerType.SKEPTIC,
+                    reviewer_type=ReviewerType.CRITIC,
                     overall_confidence=Confidence.HIGH,
                     findings=[],
                 ),
@@ -111,12 +111,12 @@ class TestFinalOutputMapping:
     def test_consensus_findings_in_arbitration(self):
         """Consensus findings = clusters with strength >= 2 in arbitration."""
         f1 = _make_finding(
-            reviewer_type=ReviewerType.SKEPTIC,
+            reviewer_type=ReviewerType.CRITIC,
             source_model="gpt-5",
             summary="Same issue",
         )
         f2 = _make_finding(
-            reviewer_type=ReviewerType.PRAGMATIST,
+            reviewer_type=ReviewerType.ADVISOR,
             source_model="gemini-2.5-pro",
             summary="Same issue",
         )
@@ -125,12 +125,12 @@ class TestFinalOutputMapping:
             builder_result=_make_builder_result(),
             reviewer_results=[
                 ReviewerResult(
-                    reviewer_type=ReviewerType.SKEPTIC,
+                    reviewer_type=ReviewerType.CRITIC,
                     overall_confidence=Confidence.HIGH,
                     findings=[f1],
                 ),
                 ReviewerResult(
-                    reviewer_type=ReviewerType.PRAGMATIST,
+                    reviewer_type=ReviewerType.ADVISOR,
                     overall_confidence=Confidence.MEDIUM,
                     findings=[f2],
                 ),
@@ -143,7 +143,7 @@ class TestFinalOutputMapping:
     def test_arbitration_mode_excludes_low_consensus(self):
         """In arbitration mode, clusters with strength < 2 are excluded."""
         f1 = _make_finding(
-            reviewer_type=ReviewerType.SKEPTIC,
+            reviewer_type=ReviewerType.CRITIC,
             source_model="gpt-5",
         )
         reconciler = Reconciler()
@@ -151,7 +151,7 @@ class TestFinalOutputMapping:
             builder_result=_make_builder_result(),
             reviewer_results=[
                 ReviewerResult(
-                    reviewer_type=ReviewerType.SKEPTIC,
+                    reviewer_type=ReviewerType.CRITIC,
                     overall_confidence=Confidence.HIGH,
                     findings=[f1],
                 ),
@@ -169,7 +169,7 @@ class TestFinalOutputMapping:
             builder_result=_make_builder_result(),
             reviewer_results=[
                 ReviewerResult(
-                    reviewer_type=ReviewerType.SKEPTIC,
+                    reviewer_type=ReviewerType.CRITIC,
                     overall_confidence=Confidence.HIGH,
                     findings=[f1],
                 ),
@@ -187,7 +187,7 @@ class TestFinalOutputMapping:
             builder_result=_make_builder_result(),
             reviewer_results=[
                 ReviewerResult(
-                    reviewer_type=ReviewerType.SKEPTIC,
+                    reviewer_type=ReviewerType.CRITIC,
                     overall_confidence=Confidence.HIGH,
                     findings=[f1],
                 ),
@@ -205,7 +205,7 @@ class TestFinalOutputMapping:
             builder_result=_make_builder_result(),
             reviewer_results=[
                 ReviewerResult(
-                    reviewer_type=ReviewerType.SKEPTIC,
+                    reviewer_type=ReviewerType.CRITIC,
                     overall_confidence=Confidence.HIGH,
                     findings=[f1],
                 ),
@@ -223,7 +223,7 @@ class TestFinalOutputMapping:
             builder_result=_make_builder_result(),
             reviewer_results=[
                 ReviewerResult(
-                    reviewer_type=ReviewerType.SKEPTIC,
+                    reviewer_type=ReviewerType.CRITIC,
                     overall_confidence=Confidence.LOW,
                     findings=[f1],
                 ),
@@ -236,13 +236,13 @@ class TestFinalOutputMapping:
     def test_decision_points_from_conflicting_recommendations(self):
         """decision_points also derived from clusters with conflicts."""
         f1 = _make_finding(
-            reviewer_type=ReviewerType.SKEPTIC,
+            reviewer_type=ReviewerType.CRITIC,
             source_model="gpt-5",
             severity=Severity.LOW,
         )
         f1 = f1.model_copy(update={"recommendation": "Do X"})
         f2 = _make_finding(
-            reviewer_type=ReviewerType.PRAGMATIST,
+            reviewer_type=ReviewerType.ADVISOR,
             source_model="gemini-2.5-pro",
             severity=Severity.LOW,
         )
@@ -252,12 +252,12 @@ class TestFinalOutputMapping:
             builder_result=_make_builder_result(),
             reviewer_results=[
                 ReviewerResult(
-                    reviewer_type=ReviewerType.SKEPTIC,
+                    reviewer_type=ReviewerType.CRITIC,
                     overall_confidence=Confidence.HIGH,
                     findings=[f1],
                 ),
                 ReviewerResult(
-                    reviewer_type=ReviewerType.PRAGMATIST,
+                    reviewer_type=ReviewerType.ADVISOR,
                     overall_confidence=Confidence.HIGH,
                     findings=[f2],
                 ),
@@ -269,19 +269,19 @@ class TestFinalOutputMapping:
 
     def test_confidence_is_minimum_of_reviewers(self):
         """Confidence should be the minimum of all reviewer overall_confidence values."""
-        f1 = _make_finding(reviewer_type=ReviewerType.SKEPTIC, source_model="gpt-5")
-        f2 = _make_finding(reviewer_type=ReviewerType.PRAGMATIST, source_model="gemini-2.5-pro")
+        f1 = _make_finding(reviewer_type=ReviewerType.CRITIC, source_model="gpt-5")
+        f2 = _make_finding(reviewer_type=ReviewerType.ADVISOR, source_model="gemini-2.5-pro")
         reconciler = Reconciler()
         result = reconciler.reconcile(
             builder_result=_make_builder_result(),
             reviewer_results=[
                 ReviewerResult(
-                    reviewer_type=ReviewerType.SKEPTIC,
+                    reviewer_type=ReviewerType.CRITIC,
                     overall_confidence=Confidence.HIGH,
                     findings=[f1],
                 ),
                 ReviewerResult(
-                    reviewer_type=ReviewerType.PRAGMATIST,
+                    reviewer_type=ReviewerType.ADVISOR,
                     overall_confidence=Confidence.LOW,
                     findings=[f2],
                 ),

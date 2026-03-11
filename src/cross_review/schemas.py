@@ -53,8 +53,8 @@ class FindingCategory(str, Enum):
 class ReviewerType(str, Enum):
     """Type of reviewer persona."""
 
-    SKEPTIC = "skeptic"
-    PRAGMATIST = "pragmatist"
+    CRITIC = "critic"
+    ADVISOR = "advisor"
     SECURITY = "security"
     OPS = "ops"
     COST = "cost"
@@ -167,6 +167,20 @@ class ReviewerResult(BaseModel):
     reviewer_type: ReviewerType
     overall_confidence: Confidence
     findings: list[Finding]
+    source_model: str = ""
+
+
+# -- Reviewer Summary ----------------------------------------------------------
+
+
+class ReviewerSummary(BaseModel):
+    """Per-reviewer summary for the perspectives table."""
+
+    reviewer_type: ReviewerType
+    model: str
+    verdict: str
+    confidence: Confidence
+    key_concern: str
 
 
 # -- Reconciliation ------------------------------------------------------------
@@ -213,6 +227,8 @@ class FinalResult(BaseModel):
     decision_points: list[str]
     trace: Trace
     confidence: Confidence = Confidence.MEDIUM
+    builder_model: str = ""
+    reviewer_summaries: list[ReviewerSummary] = Field(default_factory=list)
 
 
 # -- Token Usage ---------------------------------------------------------------

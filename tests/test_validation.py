@@ -175,22 +175,22 @@ class TestInjectFindingMetadata:
         """source_model and reviewer_type come from function params."""
         raw = _raw_finding()
         finding = inject_finding_metadata(
-            raw, source_model="claude-sonnet", reviewer_type="skeptic"
+            raw, source_model="claude-sonnet", reviewer_type="critic"
         )
         assert finding.source_model == "claude-sonnet"
-        assert finding.reviewer_type == ReviewerType.SKEPTIC
+        assert finding.reviewer_type == ReviewerType.CRITIC
 
     def test_generates_id_with_correct_prefix(self):
         """Generated id starts with '{reviewer_type}-{category}-'."""
         raw = _raw_finding(category="security")
-        finding = inject_finding_metadata(raw, source_model="gpt-4o", reviewer_type="pragmatist")
-        assert finding.id.startswith("pragmatist-security-")
+        finding = inject_finding_metadata(raw, source_model="gpt-4o", reviewer_type="advisor")
+        assert finding.id.startswith("advisor-security-")
 
     def test_id_has_8_char_hex_suffix(self):
         """Generated id ends with 8 hex characters."""
         raw = _raw_finding()
         finding = inject_finding_metadata(
-            raw, source_model="claude-sonnet", reviewer_type="skeptic"
+            raw, source_model="claude-sonnet", reviewer_type="critic"
         )
         suffix = finding.id.split("-", 2)[2]
         assert len(suffix) == 8

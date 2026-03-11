@@ -5,16 +5,18 @@ Multi-model structured technical review engine. Sends your technical question to
 ## How It Works
 
 ```text
-Question → Builder (Claude) → Reviewer(s) (OpenAI, Gemini) → Local Reconciliation → Structured Output
+Question → Builder → Critic → Advisor → Local Reconciliation → Structured Output
 ```
 
-**Default roles:**
+**Three roles, three model families:**
 
-| Role | Provider | Model |
-|------|----------|-------|
-| Builder | Claude | claude-sonnet-4-20250514 |
-| Skeptic Reviewer | OpenAI | gpt-5.2 |
-| Pragmatist Reviewer | Gemini | gemini-2.5-pro |
+| Role | Job | Default Provider | Default Model |
+|------|-----|-----------------|---------------|
+| **Builder** | Propose a concrete solution | Claude | claude-sonnet-4-20250514 |
+| **Critic** | Challenge assumptions, find flaws | OpenAI | gpt-5.2 |
+| **Advisor** | Evaluate feasibility, suggest improvements | Gemini | gemini-2.5-pro |
+
+Different model families catch different blind spots — that's the core value of cross-review.
 
 ## Installation
 
@@ -79,8 +81,8 @@ cr run --config ./my-config.toml "Review this API design"
 | Mode | LLM Calls | When to Use |
 |------|-----------|-------------|
 | `fast` | 1 (Builder only) | Brainstorming, naming, low-risk tasks |
-| `review` | 2 (Builder + Skeptic) | Design review, API planning, schema choices (default) |
-| `arbitration` | 3+ (Builder + all Reviewers) | Auth, security, production architecture, migrations |
+| `review` | 2 (Builder + Critic) | Design review, API planning, schema choices (default) |
+| `arbitration` | 3 (Builder + Critic + Advisor) | Auth, security, production architecture, migrations |
 
 ### Claude Code — Slash Command
 
@@ -133,8 +135,8 @@ After installing, restart Cline and use it from chat:
 | Role | Model | Family | Why |
 |------|-------|--------|-----|
 | Builder | `oca/gpt-5.4` | GPT | Strongest code generation and reasoning |
-| Skeptic Reviewer | `oca/grok4` | Grok (xAI) | Different training data, good at finding flaws |
-| Pragmatist Reviewer | `oca/llama4` | Llama (Meta) | Third perspective, catches different blind spots |
+| Critic | `oca/grok4` | Grok (xAI) | Different training data, good at finding flaws |
+| Advisor | `oca/llama4` | Llama (Meta) | Third perspective, catches different blind spots |
 
 Using different model families is the key value of cross-review — same-family models share blind spots.
 
@@ -143,8 +145,8 @@ Using different model families is the key value of cross-review — same-family 
 ```bash
 # Per-role overrides
 export OCA_MODEL_BUILDER=oca/gpt-5.4
-export OCA_MODEL_SKEPTIC=oca/grok4
-export OCA_MODEL_PRAGMATIST=oca/llama4
+export OCA_MODEL_CRITIC=oca/grok4
+export OCA_MODEL_ADVISOR=oca/llama4
 
 # Or set all roles to the same model
 export OCA_MODEL=oca/openai-o3
@@ -184,11 +186,11 @@ orchestration_timeout_seconds = 60
 provider = "claude"
 model = "claude-sonnet-4-20250514"
 
-[roles.skeptic_reviewer]
+[roles.critic]
 provider = "openai"
 model = "gpt-5.2"
 
-[roles.pragmatist_reviewer]
+[roles.advisor]
 provider = "gemini"
 model = "gemini-2.5-pro"
 ```
@@ -234,11 +236,11 @@ default_model = "oca/gpt-5.4"
 provider = "oca"
 model = "oca/gpt-5.4"
 
-[roles.skeptic_reviewer]
+[roles.critic]
 provider = "oca"
 model = "oca/grok4"
 
-[roles.pragmatist_reviewer]
+[roles.advisor]
 provider = "oca"
 model = "oca/llama4"
 ```

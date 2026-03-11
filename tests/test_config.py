@@ -59,17 +59,17 @@ class TestDefaultConfig:
         assert cfg.roles["builder"].provider == "claude"
         assert cfg.roles["builder"].model == "claude-sonnet-4-20250514"
 
-    def test_default_roles_has_skeptic_reviewer(self):
+    def test_default_roles_has_critic(self):
         cfg = AppConfig()
-        assert "skeptic_reviewer" in cfg.roles
-        assert cfg.roles["skeptic_reviewer"].provider == "openai"
-        assert cfg.roles["skeptic_reviewer"].model == "gpt-5.2"
+        assert "critic" in cfg.roles
+        assert cfg.roles["critic"].provider == "openai"
+        assert cfg.roles["critic"].model == "gpt-5.2"
 
-    def test_default_roles_has_pragmatist_reviewer(self):
+    def test_default_roles_has_advisor(self):
         cfg = AppConfig()
-        assert "pragmatist_reviewer" in cfg.roles
-        assert cfg.roles["pragmatist_reviewer"].provider == "gemini"
-        assert cfg.roles["pragmatist_reviewer"].model == "gemini-2.5-pro"
+        assert "advisor" in cfg.roles
+        assert cfg.roles["advisor"].provider == "gemini"
+        assert cfg.roles["advisor"].model == "gemini-2.5-pro"
 
     def test_default_config_exposes_builtin_providers(self):
         cfg = AppConfig()
@@ -131,8 +131,8 @@ model = "gpt-5.2"
         assert cfg.roles["builder"].provider == "openai"
         assert cfg.roles["builder"].model == "gpt-5.2"
         # Other roles still present from defaults
-        assert "skeptic_reviewer" in cfg.roles
-        assert "pragmatist_reviewer" in cfg.roles
+        assert "critic" in cfg.roles
+        assert "advisor" in cfg.roles
 
     def test_toml_adds_new_role(self):
         toml_str = """\
@@ -198,11 +198,11 @@ orchestration_timeout_seconds = 60
 provider = "claude"
 model = "claude-sonnet"
 
-[roles.skeptic_reviewer]
+[roles.critic]
 provider = "openai"
 model = "gpt-5"
 
-[roles.pragmatist_reviewer]
+[roles.advisor]
 provider = "gemini"
 model = "gemini-2.5-pro"
 """
@@ -210,7 +210,7 @@ model = "gemini-2.5-pro"
         assert cfg.router.default_mode == "review"
         assert cfg.budget.max_total_calls == 4
         assert cfg.roles["builder"].model == "claude-sonnet"
-        assert cfg.roles["skeptic_reviewer"].model == "gpt-5"
+        assert cfg.roles["critic"].model == "gpt-5"
 
 
 class TestResolveModel:

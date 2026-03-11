@@ -47,8 +47,8 @@ def _clear_api_keys(monkeypatch):
     for key in (
         "ANTHROPIC_API_KEY", "OPENAI_API_KEY", "GEMINI_API_KEY",
         "OCA_TOKEN", OCA_TOKEN_ENV,
-        "OCA_MODEL", "OCA_MODEL_BUILDER", "OCA_MODEL_SKEPTIC",
-        "OCA_MODEL_PRAGMATIST", "OCA_BASE_URL",
+        "OCA_MODEL", "OCA_MODEL_BUILDER", "OCA_MODEL_CRITIC",
+        "OCA_MODEL_ADVISOR", "OCA_BASE_URL",
     ):
         monkeypatch.delenv(key, raising=False)
 
@@ -204,7 +204,7 @@ class TestPerRoleModelEnvVars:
         """Handler should pass per-role model overrides to build_oca_config."""
         monkeypatch.setenv("OCA_TOKEN", "test-token")
         monkeypatch.setenv("OCA_MODEL_BUILDER", "oca/gpt-5.3-codex")
-        monkeypatch.setenv("OCA_MODEL_SKEPTIC", "oca/gpt-oss-120b")
+        monkeypatch.setenv("OCA_MODEL_CRITIC", "oca/gpt-oss-120b")
         store = SessionStore(base_dir=tmp_path)
 
         with patch(
@@ -216,9 +216,9 @@ class TestPerRoleModelEnvVars:
 
         config_arg = mock_cls.call_args[0][0]
         assert config_arg.roles["builder"].model == "oca/gpt-5.3-codex"
-        assert config_arg.roles["skeptic_reviewer"].model == "oca/gpt-oss-120b"
-        # pragmatist should keep default
-        assert config_arg.roles["pragmatist_reviewer"].model == "oca/llama4"
+        assert config_arg.roles["critic"].model == "oca/gpt-oss-120b"
+        # advisor should keep default
+        assert config_arg.roles["advisor"].model == "oca/llama4"
 
     async def test_global_oca_model_as_fallback(
         self, monkeypatch, mock_orchestrator, tmp_path,
@@ -236,7 +236,7 @@ class TestPerRoleModelEnvVars:
             )
 
         config_arg = mock_cls.call_args[0][0]
-        for role_name in ("builder", "skeptic_reviewer", "pragmatist_reviewer"):
+        for role_name in ("builder", "critic", "advisor"):
             assert config_arg.roles[role_name].model == "oca/custom-global"
 
     async def test_custom_base_url(

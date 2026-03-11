@@ -108,8 +108,8 @@ def _build_oca_config_from_env(token: str) -> AppConfig:
     models: dict[str, str] = {}
     env_map = {
         "builder": "OCA_MODEL_BUILDER",
-        "skeptic_reviewer": "OCA_MODEL_SKEPTIC",
-        "pragmatist_reviewer": "OCA_MODEL_PRAGMATIST",
+        "critic": "OCA_MODEL_CRITIC",
+        "advisor": "OCA_MODEL_ADVISOR",
     }
     for role, env_var in env_map.items():
         val = os.environ.get(env_var, "").strip()
@@ -220,7 +220,8 @@ async def handle_cross_review(  # pylint: disable=too-many-locals
         oca_token = find_oca_token_with_refresh()
         if oca_token is not None:
             config = _build_oca_config_from_env(oca_token)
-        else:
+        elif server is None:
+            # No server means no host-managed fallback either
             return {
                 "text": (
                     "Error: No provider credentials found.\n\n"
@@ -234,6 +235,8 @@ async def handle_cross_review(  # pylint: disable=too-many-locals
                 "session_status": session_status,
                 "memory_used": memory_used,
             }
+            # else: server is available — fall through to auth resolution
+            # which may use host-managed sampling
 
     # --- Inject OCA token into env early so auth resolution sees it ---
     if oca_token is not None:

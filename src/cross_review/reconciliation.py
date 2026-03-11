@@ -12,6 +12,7 @@ from cross_review.schemas import (
     Mode,
     ReconciledCluster,
     ReviewerResult,
+    ReviewerSummary,
     ReviewerType,
     Severity,
     Trace,
@@ -102,6 +103,7 @@ class Reconciler:
         reviewer_results: list[ReviewerResult],
         mode: Mode,
         request_id: str,
+        builder_model: str = "",
     ) -> FinalResult:
         """Produce final decision-support artifact. Ref: \u00a713.5-13.6."""
         all_findings: list[Finding] = []
@@ -139,6 +141,34 @@ class Reconciler:
         else:
             overall_confidence = builder_result.confidence
 
+        # Build per-reviewer summaries for perspectives table
+        reviewer_summaries: list[ReviewerSummary] = []
+        for rr in reviewer_results:
+            # Pick highest-severity finding as key concern
+            if rr.findings:
+                top_finding = min(rr.findings, key=lambda f: _severity_rank(f.severity))
+                key_concern = top_finding.summary
+            else:
+                key_concern = "No issues found"
+
+            # Build a one-line verdict from finding count and severity
+            severity_counts: dict[str, int] = {}
+            for f in rr.findings:
+                severity_counts[f.severity.value] = severity_counts.get(f.severity.value, 0) + 1
+            if severity_counts:
+                parts = [f"{v} {k}" for k, v in severity_counts.items()]
+                verdict = f"{len(rr.findings)} findings ({', '.join(parts)})"
+            else:
+                verdict = "No findings"
+
+            reviewer_summaries.append(ReviewerSummary(
+                reviewer_type=rr.reviewer_type,
+                model=rr.source_model or "unknown",
+                verdict=verdict,
+                confidence=rr.overall_confidence,
+                key_concern=key_concern,
+            ))
+
         return FinalResult(
             request_id=request_id,
             mode=mode,
@@ -153,6 +183,8 @@ class Reconciler:
                 warnings=warnings,
             ),
             confidence=overall_confidence,
+            builder_model=builder_model,
+            reviewer_summaries=reviewer_summaries,
         )
 
     @staticmethod

@@ -64,8 +64,8 @@ class ProviderEntry(BaseModel):
 
 DEFAULT_ROLES: dict[str, RoleConfig] = {
     "builder": RoleConfig(provider="claude", model="claude-sonnet-4-20250514"),
-    "skeptic_reviewer": RoleConfig(provider="openai", model="gpt-5.2"),
-    "pragmatist_reviewer": RoleConfig(provider="gemini", model="gemini-2.5-pro"),
+    "critic": RoleConfig(provider="openai", model="gpt-5.2"),
+    "advisor": RoleConfig(provider="gemini", model="gemini-2.5-pro"),
 }
 
 DEFAULT_PROVIDERS: dict[str, ProviderEntry] = {

@@ -136,7 +136,7 @@ class TestBuildOcaConfig:
         )
         assert cfg.roles["builder"].model == "oca/custom-model"
         # Others unchanged
-        assert cfg.roles["skeptic_reviewer"].model == OCA_DEFAULT_MODELS["skeptic_reviewer"]
+        assert cfg.roles["critic"].model == OCA_DEFAULT_MODELS["critic"]
 
     def test_custom_base_url(self) -> None:
         cfg = build_oca_config("test-token", base_url="https://custom.example.com/v1")

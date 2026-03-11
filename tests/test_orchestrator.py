@@ -184,9 +184,9 @@ class TestReviewMode:
         assert isinstance(result, FinalResult)
         assert result.mode == Mode.REVIEW
         assert result.trace.total_calls == 2
-        # Only skeptic reviewer in review mode
+        # Only critic in review mode
         assert len(result.selected_roles) == 1
-        assert result.selected_roles[0].value == "skeptic"
+        assert result.selected_roles[0].value == "critic"
 
     async def test_review_mode_has_findings(self):
         config = AppConfig()
@@ -234,7 +234,7 @@ class TestArbitrationMode:
         assert isinstance(result, FinalResult)
         assert result.mode == Mode.ARBITRATION
         assert result.trace.total_calls == 3
-        # Both skeptic and pragmatist reviewers
+        # Both critic and advisor reviewers
         assert len(result.selected_roles) == 2
 
     async def test_arbitration_parallel_reviewers(self):
@@ -250,8 +250,8 @@ class TestArbitrationMode:
         result = await orch.run(request)
 
         role_values = {r.value for r in result.selected_roles}
-        assert "skeptic" in role_values
-        assert "pragmatist" in role_values
+        assert "critic" in role_values
+        assert "advisor" in role_values
 
 
 class TestPartialFailure:

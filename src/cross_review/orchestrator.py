@@ -58,16 +58,16 @@ class RawReviewerOutput(BaseModel):
 # ---------------------------------------------------------------------------
 
 _ROLE_TO_REVIEWER_TYPE: dict[str, ReviewerType] = {
-    "skeptic_reviewer": ReviewerType.SKEPTIC,
-    "pragmatist_reviewer": ReviewerType.PRAGMATIST,
+    "critic": ReviewerType.CRITIC,
+    "advisor": ReviewerType.ADVISOR,
     "security_reviewer": ReviewerType.SECURITY,
     "ops_reviewer": ReviewerType.OPS,
     "cost_reviewer": ReviewerType.COST,
 }
 
 _REVIEWER_TYPE_KEY: dict[str, str] = {
-    "skeptic_reviewer": "skeptic",
-    "pragmatist_reviewer": "pragmatist",
+    "critic": "critic",
+    "advisor": "advisor",
     "security_reviewer": "security",
     "ops_reviewer": "ops",
     "cost_reviewer": "cost",
@@ -161,6 +161,8 @@ class Orchestrator:
         tracer.record_builder_result(builder_result)
         tracer.emit("builder complete")
 
+        builder_model_name = builder_provider.name()
+
         # -- Step 3: fast mode early return -----------------------------------
         if mode == Mode.FAST:
             trace = tracer.to_trace()
@@ -175,6 +177,7 @@ class Orchestrator:
                 decision_points=[],
                 trace=trace,
                 confidence=builder_result.confidence,
+                builder_model=builder_model_name,
             )
 
         # -- Step 4: determine reviewer roles ---------------------------------
@@ -197,6 +200,7 @@ class Orchestrator:
             reviewer_results=reviewer_results,
             mode=mode,
             request_id=request.request_id,
+            builder_model=builder_model_name,
         )
 
         # -- Step 8: merge trace data -----------------------------------------
@@ -224,20 +228,20 @@ class Orchestrator:
     ) -> list[tuple[str, RoleConfig]]:
         """Return the list of (role_name, role_config) pairs for the given mode.
 
-        - REVIEW: ["skeptic_reviewer"] only.
-        - ARBITRATION: all configured *_reviewer roles, up to max_reviewers.
+        - REVIEW: ["critic"] only.
+        - ARBITRATION: all configured reviewer roles, up to max_reviewers.
         """
         if mode == Mode.REVIEW:
-            role_name = "skeptic_reviewer"
+            role_name = "critic"
             role_cfg = self._config.roles.get(role_name)
             if role_cfg is None:
-                raise ValueError("No skeptic_reviewer role configured")
+                raise ValueError("No critic role configured")
             return [(role_name, role_cfg)]
 
-        # ARBITRATION: collect all *_reviewer roles, limited by budget
+        # ARBITRATION: collect all reviewer roles (those in the type map), limited by budget
         reviewer_roles: list[tuple[str, RoleConfig]] = []
         for name, cfg in self._config.roles.items():
-            if name.endswith("_reviewer"):
+            if name in _ROLE_TO_REVIEWER_TYPE:
                 reviewer_roles.append((name, cfg))
                 if len(reviewer_roles) >= budget.max_reviewers:
                     break
@@ -265,7 +269,7 @@ class Orchestrator:
             reviewer_type_key = _REVIEWER_TYPE_KEY.get(
                 role_name, role_name.replace("_reviewer", "")
             )
-            reviewer_type = _ROLE_TO_REVIEWER_TYPE.get(role_name, ReviewerType.SKEPTIC)
+            reviewer_type = _ROLE_TO_REVIEWER_TYPE.get(role_name, ReviewerType.CRITIC)
             provider = self._provider_factory(role_cfg.provider, role_cfg.model)
             source_model = provider.name()
 
@@ -303,6 +307,7 @@ class Orchestrator:
                 reviewer_type=reviewer_type,
                 overall_confidence=Confidence(raw_dict.get("overall_confidence", "medium")),
                 findings=injected_findings,
+                source_model=source_model,
             )
 
         # Launch reviewer tasks

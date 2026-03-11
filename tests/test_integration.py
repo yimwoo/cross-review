@@ -105,7 +105,7 @@ def _make_mock_provider_factory():
 
 
 class TestFullPipelineReviewMode:
-    """Full pipeline in REVIEW mode: builder + skeptic reviewer."""
+    """Full pipeline in REVIEW mode: builder + critic."""
 
     async def test_review_mode_end_to_end(self):
         config = AppConfig()
@@ -132,13 +132,24 @@ class TestFullPipelineReviewMode:
         assert result.trace.builder_result is not None
         assert result.trace.builder_result.recommendation == _BUILDER_RESULT.recommendation
 
-        # Selected roles should contain the skeptic reviewer
+        # Selected roles should contain the critic
         assert len(result.selected_roles) >= 1
         role_values = {r.value for r in result.selected_roles}
-        assert "skeptic" in role_values
+        assert "critic" in role_values
 
         # Consensus findings should be populated (review mode promotes all)
         assert len(result.consensus_findings) >= 1
+
+        # Builder model should be set
+        assert result.builder_model != ""
+
+        # Reviewer summaries should be populated (1 reviewer in review mode)
+        assert len(result.reviewer_summaries) == 1
+        rs = result.reviewer_summaries[0]
+        assert rs.reviewer_type.value == "critic"
+        assert rs.model != ""
+        assert rs.verdict != ""
+        assert rs.key_concern != ""
 
         # Final recommendation should contain the builder recommendation
         assert "Builder recommends" in result.final_recommendation
@@ -148,6 +159,11 @@ class TestFullPipelineReviewMode:
         md = render_markdown(result)
         assert "Cross-Review Result" in md
         assert "review" in md.lower()
+
+        # Perspectives table should be present
+        assert "Perspectives" in md
+        assert "Builder" in md
+        assert "Critic" in md
 
         js = render_json(result)
         parsed = json.loads(js)
@@ -221,11 +237,20 @@ class TestFullPipelineArbitrationMode:
         # Should have exactly 3 provider calls (builder + 2 reviewers)
         assert result.trace.total_calls == 3
 
-        # Both skeptic and pragmatist should be selected
+        # Both critic and advisor should be selected
         assert len(result.selected_roles) == 2
         role_values = {r.value for r in result.selected_roles}
-        assert "skeptic" in role_values
-        assert "pragmatist" in role_values
+        assert "critic" in role_values
+        assert "advisor" in role_values
+
+        # Builder model should be set
+        assert result.builder_model != ""
+
+        # Reviewer summaries for both reviewers
+        assert len(result.reviewer_summaries) == 2
+        summary_roles = {rs.reviewer_type.value for rs in result.reviewer_summaries}
+        assert "critic" in summary_roles
+        assert "advisor" in summary_roles
 
         # Builder result in trace
         assert result.trace.builder_result is not None
@@ -314,6 +339,8 @@ class TestFullPipelineFastMode:
         assert result.consensus_findings == []
         assert result.conflicting_findings == []
         assert result.likely_shortcuts == []
+        assert result.reviewer_summaries == []
+        assert result.builder_model != ""
 
         # Builder recommendation is used directly as final_recommendation
         assert (

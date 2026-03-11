@@ -14,6 +14,8 @@ canned JSON responses, exercising the full pipeline:
 from __future__ import annotations
 
 import json
+
+import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from cross_review.config import AppConfig
@@ -26,6 +28,14 @@ from cross_review.schemas import (
     Mode,
     ReviewRequest,
 )
+
+
+@pytest.fixture(autouse=True)
+def _disable_oca_discovery():
+    """Prevent OCA auto-discovery from interfering with host-managed tests."""
+    with patch("cross_review.mcp_server.find_oca_token_with_refresh", return_value=None), \
+         patch("cross_review.mcp_server.can_resolve_credentials", return_value=False):
+        yield
 
 
 # ---------------------------------------------------------------------------
@@ -252,17 +262,12 @@ class TestE2EHostManagedFallback:
         assert "Single-provider" not in result_text
 
     async def test_no_server_no_keys_cli_mode(self):
-        """Without server (CLI mode), no auth resolution — uses provider_managed."""
-        # This tests the CLI path where server=None
-        mock_orch = MagicMock()
-        mock_orch.run = AsyncMock(side_effect=RuntimeError("Missing API key for claude"))
+        """Without server (CLI mode) and no credentials, returns credential error."""
+        result_text = (await handle_cross_review({"question": "Test"}))["text"]
 
-        with patch("cross_review.mcp_server.Orchestrator", return_value=mock_orch):
-            result_text = (await handle_cross_review({"question": "Test"}))["text"]
-
-        # Should get the error from the orchestrator (not from auth resolution)
+        # Should get the credential error (no server for host-managed fallback)
         assert "Error" in result_text
-        assert "Missing API key" in result_text
+        assert "No provider credentials" in result_text
 
     async def test_server_without_sampling_auto_falls_back(self, monkeypatch):
         """Server without create_message: auto mode can't use host_managed."""

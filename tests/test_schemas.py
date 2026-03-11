@@ -133,9 +133,9 @@ class TestFinding:
 
     def test_all_fields(self):
         finding = Finding(
-            id="skeptic-correctness-abcd1234",
+            id="critic-correctness-abcd1234",
             source_model="claude-sonnet",
-            reviewer_type=ReviewerType.SKEPTIC,
+            reviewer_type=ReviewerType.CRITIC,
             category=FindingCategory.CORRECTNESS,
             severity=Severity.HIGH,
             target="src/main.py:42",
@@ -147,8 +147,8 @@ class TestFinding:
             confidence=Confidence.HIGH,
         )
 
-        assert finding.id == "skeptic-correctness-abcd1234"
-        assert finding.reviewer_type == ReviewerType.SKEPTIC
+        assert finding.id == "critic-correctness-abcd1234"
+        assert finding.reviewer_type == ReviewerType.CRITIC
         assert finding.category == FindingCategory.CORRECTNESS
         assert finding.severity == Severity.HIGH
         assert finding.quote == "x = obj.value  # obj may be None"
@@ -157,9 +157,9 @@ class TestFinding:
     def test_optional_quote(self):
         """quote is optional and defaults to None."""
         finding = Finding(
-            id="pragmatist-security-ef567890",
+            id="advisor-security-ef567890",
             source_model="gpt-4o",
-            reviewer_type=ReviewerType.PRAGMATIST,
+            reviewer_type=ReviewerType.ADVISOR,
             category=FindingCategory.SECURITY,
             severity=Severity.CRITICAL,
             target="src/auth.py",
@@ -199,7 +199,7 @@ class TestFinalResult:
         result = FinalResult(
             request_id="req-001",
             mode=Mode.REVIEW,
-            selected_roles=[ReviewerType.SKEPTIC, ReviewerType.PRAGMATIST],
+            selected_roles=[ReviewerType.CRITIC, ReviewerType.ADVISOR],
             consensus_findings=[],
             conflicting_findings=[],
             likely_shortcuts=[],
@@ -297,13 +297,13 @@ class TestGenerateFindingId:
 
     def test_format(self):
         fid = generate_finding_id(
-            reviewer_type="skeptic",
+            reviewer_type="critic",
             category="correctness",
             source_model="claude-sonnet",
             target="main.py:10",
             summary="Bug found",
         )
-        assert fid.startswith("skeptic-correctness-")
+        assert fid.startswith("critic-correctness-")
         # 8-char hex hash suffix
         suffix = fid.split("-", 2)[2]
         assert len(suffix) == 8
@@ -312,7 +312,7 @@ class TestGenerateFindingId:
     def test_deterministic(self):
         """Same inputs produce the same id."""
         args = dict(
-            reviewer_type="pragmatist",
+            reviewer_type="advisor",
             category="security",
             source_model="gpt-4o",
             target="auth.py",
@@ -322,7 +322,7 @@ class TestGenerateFindingId:
 
     def test_different_inputs_differ(self):
         base = dict(
-            reviewer_type="skeptic",
+            reviewer_type="critic",
             category="correctness",
             source_model="claude-sonnet",
             target="main.py",

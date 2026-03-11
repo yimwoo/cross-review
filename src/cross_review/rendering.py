@@ -59,6 +59,46 @@ def _render_markdown_builder(result: FinalResult) -> list[str]:
     return lines
 
 
+def _render_markdown_perspectives(result: FinalResult) -> list[str]:
+    """Render the per-role perspectives comparison table.
+
+    Args:
+        result: The final review result.
+
+    Returns:
+        Lines for the perspectives table (empty if no summaries).
+    """
+    if not result.reviewer_summaries:
+        return []
+
+    lines: list[str] = [
+        "## Perspectives",
+        "",
+        "| Role | Model | Verdict | Confidence | Key Concern |",
+        "|------|-------|---------|------------|-------------|",
+    ]
+
+    # Builder row
+    builder = result.trace.builder_result
+    if builder:
+        builder_model = result.builder_model or "unknown"
+        lines.append(
+            f"| Builder | {builder_model} | {builder.recommendation[:60]} "
+            f"| {builder.confidence.value} | — |"
+        )
+
+    # Reviewer rows
+    for rs in result.reviewer_summaries:
+        role_label = rs.reviewer_type.value.capitalize()
+        lines.append(
+            f"| {role_label} | {rs.model} | {rs.verdict} "
+            f"| {rs.confidence.value} | {rs.key_concern} |"
+        )
+
+    lines.append("")
+    return lines
+
+
 def _render_markdown_findings(result: FinalResult) -> list[str]:
     """Render findings, conflicts, shortcuts, and decision points.
 
@@ -133,6 +173,7 @@ def render_markdown(result: FinalResult) -> str:
     lines: list[str] = []
     lines.extend(_render_markdown_header(result))
     lines.extend(_render_markdown_builder(result))
+    lines.extend(_render_markdown_perspectives(result))
     lines.extend(_render_markdown_findings(result))
     lines.extend(_render_markdown_footer(result))
     return "\n".join(lines)

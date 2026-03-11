@@ -108,7 +108,7 @@ def validate_reviewer_result(
             raise ValidationError("trivial")
 
     # ── Build Finding objects with placeholder metadata ───────────────
-    placeholder_type = ReviewerType.SKEPTIC  # overwritten by orchestrator
+    placeholder_type = ReviewerType.CRITIC  # overwritten by orchestrator
     placeholder_model = "unknown"
 
     parsed_findings: list[Finding] = [
@@ -147,7 +147,7 @@ def inject_finding_metadata(
     source_model:
         The model identifier (e.g. ``"claude-sonnet"``).
     reviewer_type:
-        The reviewer persona (e.g. ``"skeptic"``).
+        The reviewer persona (e.g. ``"critic"``).
 
     Returns
     -------

@@ -6,8 +6,8 @@
 #
 # Model selection (env vars):
 #   OCA_MODEL_BUILDER    — builder role model           (default: oca/gpt-5.4)
-#   OCA_MODEL_SKEPTIC    — skeptic reviewer model       (default: oca/grok4)
-#   OCA_MODEL_PRAGMATIST — pragmatist reviewer model    (default: oca/llama4)
+#   OCA_MODEL_CRITIC     — critic role model             (default: oca/grok4)
+#   OCA_MODEL_ADVISOR    — advisor role model            (default: oca/llama4)
 #   OCA_MODEL            — override ALL roles at once   (default: unset)
 #
 # Examples:
@@ -30,8 +30,8 @@ set -euo pipefail
 OCA_BASE_URL="${OCA_BASE_URL:-https://code-internal.aiservice.us-chicago-1.oci.oraclecloud.com/20250206/app/litellm/v1}"
 # Per-role model defaults (diverse families for better cross-review)
 OCA_MODEL_BUILDER="${OCA_MODEL_BUILDER:-${OCA_MODEL:-oca/gpt-5.4}}"
-OCA_MODEL_SKEPTIC="${OCA_MODEL_SKEPTIC:-${OCA_MODEL:-oca/grok4}}"
-OCA_MODEL_PRAGMATIST="${OCA_MODEL_PRAGMATIST:-${OCA_MODEL:-oca/llama4}}"
+OCA_MODEL_CRITIC="${OCA_MODEL_CRITIC:-${OCA_MODEL:-oca/grok4}}"
+OCA_MODEL_ADVISOR="${OCA_MODEL_ADVISOR:-${OCA_MODEL:-oca/llama4}}"
 OCA_MODEL="${OCA_MODEL:-oca/gpt-5.4}"
 
 # --- Temp file cleanup ---
@@ -123,13 +123,13 @@ default_model = "${OCA_MODEL}"
 provider = "oca"
 model = "${OCA_MODEL_BUILDER}"
 
-[roles.skeptic_reviewer]
+[roles.critic]
 provider = "oca"
-model = "${OCA_MODEL_SKEPTIC}"
+model = "${OCA_MODEL_CRITIC}"
 
-[roles.pragmatist_reviewer]
+[roles.advisor]
 provider = "oca"
-model = "${OCA_MODEL_PRAGMATIST}"
+model = "${OCA_MODEL_ADVISOR}"
 TOML
 
 # --- Run cross-review ---
