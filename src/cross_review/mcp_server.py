@@ -17,7 +17,7 @@ from cross_review.oca_discovery import (
     OCA_TOKEN_ENV,
     build_oca_config,
     can_resolve_credentials,
-    find_oca_token,
+    find_oca_token_with_refresh,
 )
 from cross_review.orchestrator import Orchestrator
 from cross_review.rendering import render
@@ -217,7 +217,7 @@ async def handle_cross_review(  # pylint: disable=too-many-locals
         pass
     else:
         # Fall back to OCA auto-discovery.
-        oca_token = find_oca_token()
+        oca_token = find_oca_token_with_refresh()
         if oca_token is not None:
             config = _build_oca_config_from_env(oca_token)
         else:

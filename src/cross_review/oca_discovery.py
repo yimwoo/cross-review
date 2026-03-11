@@ -7,11 +7,17 @@ handling is in-memory only — nothing is persisted to disk.
 
 from __future__ import annotations
 
+import base64
 import json
+import logging
 import os
+import urllib.parse
+import urllib.request
 from pathlib import Path
 
 from cross_review.config import AppConfig, ProviderEntry, RoleConfig
+
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Default OCA endpoint and per-role model defaults
@@ -68,6 +74,162 @@ def find_oca_token() -> str | None:
             pass
 
     return None
+
+
+# ---------------------------------------------------------------------------
+# Token expiry check & refresh
+# ---------------------------------------------------------------------------
+
+# Refresh buffer — treat token as expired 60s before real expiry so we
+# never send a request with a token that expires mid-flight.
+_EXPIRY_BUFFER_SECONDS = 60
+
+
+def _is_token_expired(token: str) -> bool:
+    """Check if a JWT access token is expired (or nearly expired)."""
+    try:
+        parts = token.split(".")
+        if len(parts) < 2:
+            return False  # not a JWT, can't check
+        # Pad base64
+        payload_b64 = parts[1] + "=="
+        payload = json.loads(base64.urlsafe_b64decode(payload_b64))
+        exp = payload.get("exp")
+        if exp is None:
+            return False
+        import time  # noqa: PLC0415
+
+        return time.time() > (exp - _EXPIRY_BUFFER_SECONDS)
+    except Exception:  # noqa: BLE001
+        return False  # if we can't parse, assume valid and let the API decide
+
+
+def _extract_client_id(token: str) -> str | None:
+    """Extract the client_id (or azp) from a JWT access token."""
+    try:
+        parts = token.split(".")
+        if len(parts) < 2:
+            return None
+        payload = json.loads(base64.urlsafe_b64decode(parts[1] + "=="))
+        return payload.get("client_id") or payload.get("azp")
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def _extract_idcs_domain(token: str) -> str | None:
+    """Extract the IDCS domain URL from the JWT audience claim."""
+    try:
+        parts = token.split(".")
+        if len(parts) < 2:
+            return None
+        payload = json.loads(base64.urlsafe_b64decode(parts[1] + "=="))
+        aud = payload.get("aud")
+        if isinstance(aud, str) and "identity.oraclecloud.com" in aud:
+            return aud.rstrip("/")
+        if isinstance(aud, list):
+            for a in aud:
+                if "identity.oraclecloud.com" in a:
+                    return a.rstrip("/")
+        return None
+    except Exception:  # noqa: BLE001
+        return None
+
+
+def refresh_oca_token(
+    current_token: str | None = None,
+) -> str | None:
+    """Attempt to refresh the OCA access token using the stored refresh token.
+
+    Reads the refresh token from ``~/.cline/data/secrets.json``, exchanges it
+    at the IDCS token endpoint, and updates ``secrets.json`` with the new
+    access token.  Returns the new token or *None* on failure.
+
+    The IDCS domain and client_id are extracted from the current (possibly
+    expired) access token's JWT claims.
+    """
+    cline_secrets = Path.home() / ".cline" / "data" / "secrets.json"
+    if not cline_secrets.is_file():
+        return None
+
+    try:
+        data = json.loads(cline_secrets.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError):
+        return None
+
+    refresh_token = data.get("ocaRefreshToken", "").strip()
+    if not refresh_token:
+        return None
+
+    # We need an existing token (even expired) to extract IDCS domain + client_id
+    old_token = current_token or data.get("ocaApiKey", "").strip()
+    if not old_token:
+        return None
+
+    idcs_domain = _extract_idcs_domain(old_token)
+    client_id = _extract_client_id(old_token)
+    if not idcs_domain or not client_id:
+        logger.debug("Cannot refresh: missing IDCS domain or client_id in token")
+        return None
+
+    token_url = f"{idcs_domain}/oauth2/v1/token"
+    post_data = urllib.parse.urlencode({
+        "grant_type": "refresh_token",
+        "refresh_token": refresh_token,
+        "client_id": client_id,
+    }).encode()
+
+    req = urllib.request.Request(
+        token_url,
+        data=post_data,
+        headers={"Content-Type": "application/x-www-form-urlencoded"},
+    )
+
+    try:
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            result = json.loads(resp.read())
+    except Exception:  # noqa: BLE001
+        logger.debug("OCA token refresh request failed", exc_info=True)
+        return None
+
+    new_token = result.get("access_token", "").strip()
+    if not new_token:
+        return None
+
+    # Persist the refreshed token back to secrets.json so Cline stays in sync
+    data["ocaApiKey"] = new_token
+    new_refresh = result.get("refresh_token", "").strip()
+    if new_refresh:
+        data["ocaRefreshToken"] = new_refresh
+
+    try:
+        cline_secrets.write_text(
+            json.dumps(data, indent=2), encoding="utf-8"
+        )
+    except OSError:
+        pass  # token still usable even if we can't persist
+
+    logger.info("OCA token refreshed successfully")
+    return new_token
+
+
+def find_oca_token_with_refresh() -> str | None:
+    """Like :func:`find_oca_token` but auto-refreshes expired tokens.
+
+    If the discovered token is an expired JWT and a refresh token is
+    available, attempts a silent refresh before returning.
+    """
+    token = find_oca_token()
+    if token is None:
+        return None
+
+    if _is_token_expired(token):
+        logger.info("OCA token expired, attempting refresh")
+        refreshed = refresh_oca_token(current_token=token)
+        if refreshed:
+            return refreshed
+        logger.warning("OCA token refresh failed; returning expired token")
+
+    return token
 
 
 # ---------------------------------------------------------------------------
