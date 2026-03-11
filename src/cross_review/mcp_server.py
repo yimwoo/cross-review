@@ -10,6 +10,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
+from pathlib import Path
 from typing import Any
 
 from cross_review.config import AppConfig, load_config
@@ -34,7 +35,8 @@ TOOL_DEFINITION: dict[str, Any] = {
     "name": "cross_review",
     "description": (
         "Run structured multi-model technical review with Builder + Reviewer "
-        "roles, local reconciliation, and decision-support output"
+        "roles, local reconciliation, and decision-support output. "
+        "Call once per question — duplicate calls are automatically deduplicated"
     ),
     "inputSchema": {
         "type": "object",
@@ -92,9 +94,14 @@ TOOL_DEFINITION: dict[str, Any] = {
                         "path": {"type": "string"},
                         "content": {"type": "string"},
                     },
-                    "required": ["path", "content"],
+                    "required": ["path"],
                 },
-                "description": "File contents to include in the review",
+                "description": (
+                    "Files to include in the review. Provide 'path' "
+                    "(relative to workspace or absolute within workspace). "
+                    "Optionally include 'content' to skip server-side file "
+                    "reading. Large files are automatically truncated."
+                ),
             },
         },
         "required": ["question"],
@@ -195,9 +202,18 @@ async def handle_cross_review(  # pylint: disable=too-many-locals
     if prior_context:
         context_parts.append(f"Prior discussion:\n{prior_context}")
 
-    # Inject file contents
-    for f in files:
-        context_parts.append(f"File: {f['path']}\n```\n{f['content']}\n```")
+    # Resolve and inject file contents (smart context)
+    from cross_review._file_context import resolve_files as _resolve_files  # noqa: PLC0415
+
+    workspace_root = Path(arguments.get("_workspace", "") or ".").resolve()
+    resolved_files, file_errors = _resolve_files(files, workspace_root)
+    for rf in resolved_files:
+        label = f"File: {rf.path}"
+        if rf.notice:
+            label += f" ({rf.notice})"
+        context_parts.append(f"{label}\n```\n{rf.content}\n```")
+    for err in file_errors:
+        context_parts.append(f"[File error: {err}]")
 
     # Original context
     if context_str:
@@ -335,7 +351,7 @@ async def handle_cross_review(  # pylint: disable=too-many-locals
         RoundRecord(
             round_number=round_num,
             request_payload={"question": question, "mode": mode_str,
-                             "files": [f["path"] for f in files]},
+                             "files": [rf.path for rf in resolved_files]},
             result_payload={"rendered_length": len(rendered),
                             "confidence": result.confidence.value},
         ),
@@ -348,6 +364,15 @@ async def handle_cross_review(  # pylint: disable=too-many-locals
         "session_status": session_status,
         "memory_used": memory_used,
     }
+
+
+# ---------------------------------------------------------------------------
+# Request dedup cache (module-level, lives for the MCP server lifetime)
+# ---------------------------------------------------------------------------
+
+# Lazy-initialised inside run_server() so the import of _request_cache is
+# deferred until the mcp package is actually available.
+_dedup_cache: Any = None  # will be set to RequestCache in run_server()
 
 
 # ---------------------------------------------------------------------------
@@ -372,6 +397,11 @@ def run_server() -> None:
             + 'git+https://github.com/yimwoo/cross-review.git"'
         ) from exc
 
+    from cross_review._request_cache import RequestCache  # noqa: PLC0415
+
+    global _dedup_cache  # noqa: PLW0603
+    _dedup_cache = RequestCache(ttl=5.0)
+
     server = Server("cross-review")
 
     @server.list_tools()  # type: ignore[misc]
@@ -387,11 +417,17 @@ def run_server() -> None:
 
     @server.call_tool()  # type: ignore[misc]
     async def call_tool(name: str, arguments: dict[str, Any]) -> list[TextContent]:
-        """Handle a tool call."""
+        """Handle a tool call with in-flight request dedup."""
         if name != "cross_review":
             return [TextContent(type="text", text=f"Unknown tool: {name}")]
 
-        result = await handle_cross_review(arguments, server=server)
+        from cross_review._request_cache import fingerprint  # noqa: PLC0415
+
+        workspace_root = Path(arguments.get("_workspace", "")).resolve() or Path.cwd()
+        key = fingerprint(arguments, workspace_root=workspace_root)
+        result = await _dedup_cache.get_or_run(
+            key, lambda: handle_cross_review(arguments, server=server)
+        )
 
         # Embed session metadata in the response so it doesn't appear
         # as a separate raw JSON block in the host UI.
