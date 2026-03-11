@@ -104,7 +104,10 @@ default_model = "${OCA_MODEL}"
 [roles.builder]
 provider = "oca"
 
-[roles.reviewer]
+[roles.skeptic_reviewer]
+provider = "oca"
+
+[roles.pragmatist_reviewer]
 provider = "oca"
 TOML
 
