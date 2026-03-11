@@ -30,7 +30,7 @@ class TestToolDefinition:
     def test_output_format_enum(self):
         """Output format should have correct enum values."""
         fmt_prop = TOOL_DEFINITION["inputSchema"]["properties"]["output_format"]
-        assert set(fmt_prop["enum"]) == {"markdown", "json", "summary"}
+        assert set(fmt_prop["enum"]) == {"markdown", "json"}
 
 
 class TestHandleCrossReview:

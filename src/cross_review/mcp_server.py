@@ -60,9 +60,13 @@ TOOL_DEFINITION: dict[str, Any] = {
             },
             "output_format": {
                 "type": "string",
-                "enum": ["markdown", "json", "summary"],
+                "enum": ["markdown", "json"],
                 "default": "markdown",
-                "description": "Output format",
+                "description": (
+                    "Output format. Use 'markdown' (default) for full "
+                    "formatted review with sections, tables, and findings. "
+                    "Use 'json' only when structured data is needed."
+                ),
             },
             "session_id": {
                 "type": "string",
@@ -150,6 +154,9 @@ async def handle_cross_review(  # pylint: disable=too-many-locals
     context_str: str | None = arguments.get("context")
     constraints: list[str] = arguments.get("constraints", [])
     output_format: str = arguments.get("output_format", "markdown")
+    # Normalize: only markdown and json are supported in MCP context
+    if output_format not in ("markdown", "json"):
+        output_format = "markdown"
     session_id: str | None = arguments.get("session_id")
     new_session: bool = arguments.get("new_session", False)
     prior_context: str | None = arguments.get("prior_context")
@@ -385,17 +392,16 @@ def run_server() -> None:
             return [TextContent(type="text", text=f"Unknown tool: {name}")]
 
         result = await handle_cross_review(arguments, server=server)
-        import json as _json  # pylint: disable=import-outside-toplevel
 
-        session_meta = _json.dumps({
-            "session_id": result["session_id"],
-            "session_status": result["session_status"],
-            "memory_used": result["memory_used"],
-        })
-        return [
-            TextContent(type="text", text=result["text"]),
-            TextContent(type="text", text=session_meta),
-        ]
+        # Embed session metadata in the response so it doesn't appear
+        # as a separate raw JSON block in the host UI.
+        session_id = result["session_id"]
+        text = result["text"]
+        if not text.rstrip().endswith("---"):
+            text = text.rstrip() + "\n\n---\n"
+        text += f"\n*Session: {session_id}*\n"
+
+        return [TextContent(type="text", text=text)]
 
     init_options = server.create_initialization_options()
 
