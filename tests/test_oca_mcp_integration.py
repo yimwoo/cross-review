@@ -218,7 +218,7 @@ class TestPerRoleModelEnvVars:
         assert config_arg.roles["builder"].model == "oca/gpt-5.3-codex"
         assert config_arg.roles["skeptic_reviewer"].model == "oca/gpt-oss-120b"
         # pragmatist should keep default
-        assert config_arg.roles["pragmatist_reviewer"].model == "oca/gpt-5.2-codex"
+        assert config_arg.roles["pragmatist_reviewer"].model == "oca/llama4"
 
     async def test_global_oca_model_as_fallback(
         self, monkeypatch, mock_orchestrator, tmp_path,

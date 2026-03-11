@@ -30,8 +30,8 @@ OCA_DEFAULT_BASE_URL = (
 
 OCA_DEFAULT_MODELS: dict[str, str] = {
     "builder": "oca/gpt-5.4",
-    "skeptic_reviewer": "oca/gpt-5.2",
-    "pragmatist_reviewer": "oca/gpt-5.2-codex",
+    "skeptic_reviewer": "oca/grok4",
+    "pragmatist_reviewer": "oca/llama4",
 }
 
 # ---------------------------------------------------------------------------
@@ -257,7 +257,7 @@ def build_oca_config(
         token: OCA bearer token (used only to validate non-empty).
         base_url: Override the default OCA endpoint.
         models: Per-role model overrides, e.g.
-            ``{"builder": "oca/gpt-5.4", "skeptic_reviewer": "oca/gpt-5.2"}``.
+            ``{"builder": "oca/gpt-5.4", "skeptic_reviewer": "oca/grok4"}``.
             Missing keys fall back to :data:`OCA_DEFAULT_MODELS`.
 
     Returns:
