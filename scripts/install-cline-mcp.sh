@@ -95,16 +95,35 @@ info "MCP server verified."
 info "Configuring Cline MCP server..."
 
 # Cline stores MCP config in VS Code's globalStorage.
-# The primary location on macOS is under ~/Library/Application Support/Code/...
-# We also check legacy ~/.cline paths as fallbacks.
+# The path varies by OS:
+#   macOS:   ~/Library/Application Support/Code/User/globalStorage/saoudrizwan.claude-dev/settings/
+#   Linux:   ~/.config/Code/User/globalStorage/saoudrizwan.claude-dev/settings/
+#   Windows: $APPDATA/Code/User/globalStorage/saoudrizwan.claude-dev/settings/
+
+CLINE_SUBDIR="Code/User/globalStorage/saoudrizwan.claude-dev/settings"
+case "$(uname -s)" in
+    Darwin)
+        VSCODE_CLINE_DIR="$HOME/Library/Application Support/$CLINE_SUBDIR"
+        ;;
+    Linux)
+        VSCODE_CLINE_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/$CLINE_SUBDIR"
+        ;;
+    MINGW*|MSYS*|CYGWIN*)
+        # Windows (Git Bash / MSYS2 / Cygwin)
+        VSCODE_CLINE_DIR="${APPDATA:-$HOME/AppData/Roaming}/$CLINE_SUBDIR"
+        ;;
+    *)
+        VSCODE_CLINE_DIR=""
+        ;;
+esac
 
 CLINE_MCP_CONFIG=""
-# VS Code globalStorage path (primary — works on macOS)
-VSCODE_CLINE_DIR="$HOME/Library/Application Support/Code/User/globalStorage/saoudrizwan.claude-dev/settings"
-for candidate in \
-    "$VSCODE_CLINE_DIR/cline_mcp_settings.json" \
-    "$HOME/.cline/data/settings/cline_mcp_settings.json" \
-    "$HOME/.cline/mcp_settings.json"; do
+CANDIDATES=()
+[ -n "$VSCODE_CLINE_DIR" ] && CANDIDATES+=("$VSCODE_CLINE_DIR/cline_mcp_settings.json")
+CANDIDATES+=("$HOME/.cline/data/settings/cline_mcp_settings.json")
+CANDIDATES+=("$HOME/.cline/mcp_settings.json")
+
+for candidate in "${CANDIDATES[@]}"; do
     if [ -f "$candidate" ]; then
         CLINE_MCP_CONFIG="$candidate"
         break
@@ -113,11 +132,11 @@ done
 
 if [ -z "$CLINE_MCP_CONFIG" ]; then
     # Try to create in the VS Code globalStorage path first
-    if [ -d "$VSCODE_CLINE_DIR" ]; then
+    if [ -n "$VSCODE_CLINE_DIR" ] && [ -d "$VSCODE_CLINE_DIR" ]; then
         CLINE_MCP_CONFIG="$VSCODE_CLINE_DIR/cline_mcp_settings.json"
         echo '{"mcpServers":{}}' > "$CLINE_MCP_CONFIG"
         info "Created new Cline MCP config at $CLINE_MCP_CONFIG"
-    elif [ -d "$(dirname "$VSCODE_CLINE_DIR")" ]; then
+    elif [ -n "$VSCODE_CLINE_DIR" ] && [ -d "$(dirname "$VSCODE_CLINE_DIR")" ]; then
         mkdir -p "$VSCODE_CLINE_DIR"
         CLINE_MCP_CONFIG="$VSCODE_CLINE_DIR/cline_mcp_settings.json"
         echo '{"mcpServers":{}}' > "$CLINE_MCP_CONFIG"
