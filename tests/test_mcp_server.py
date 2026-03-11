@@ -250,6 +250,8 @@ class TestHostManagedAuth:
     async def test_provider_managed_when_keys_set(self, mock_orchestrator, monkeypatch, tmp_path):
         """When API keys are set, should use provider_managed even with server."""
         monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-test")
+        monkeypatch.setenv("OPENAI_API_KEY", "ok-test")
+        monkeypatch.setenv("GEMINI_API_KEY", "gk-test")
 
         mock_server = MagicMock()
         mock_server.create_message = AsyncMock()
@@ -278,7 +280,8 @@ class TestHostManagedAuth:
         mock_server.create_message = AsyncMock()
         store = SessionStore(base_dir=tmp_path)
 
-        with patch("cross_review.mcp_server.load_config") as mock_load_config:
+        with patch("cross_review.mcp_server.load_config") as mock_load_config, \
+             patch("cross_review.mcp_server.can_resolve_credentials", return_value=True):
             cfg = MagicMock()
             cfg.providers = {
                 "deepseek": MagicMock(api_key_env="DEEPSEEK_API_KEY"),

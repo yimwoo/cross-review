@@ -9,9 +9,16 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 from typing import Any
 
-from cross_review.config import load_config
+from cross_review.config import AppConfig, load_config
+from cross_review.oca_discovery import (
+    OCA_TOKEN_ENV,
+    build_oca_config,
+    can_resolve_credentials,
+    find_oca_token,
+)
 from cross_review.orchestrator import Orchestrator
 from cross_review.rendering import render
 from cross_review.schemas import ContextPayload, Mode, ReviewRequest
@@ -89,6 +96,33 @@ TOOL_DEFINITION: dict[str, Any] = {
         "required": ["question"],
     },
 }
+
+
+# ---------------------------------------------------------------------------
+# OCA config helper
+# ---------------------------------------------------------------------------
+
+
+def _build_oca_config_from_env(token: str) -> AppConfig:
+    """Build an OCA config, reading per-role model overrides from env vars."""
+    models: dict[str, str] = {}
+    env_map = {
+        "builder": "OCA_MODEL_BUILDER",
+        "skeptic_reviewer": "OCA_MODEL_SKEPTIC",
+        "pragmatist_reviewer": "OCA_MODEL_PRAGMATIST",
+    }
+    for role, env_var in env_map.items():
+        val = os.environ.get(env_var, "").strip()
+        if val:
+            models[role] = val
+    # Global default override
+    global_model = os.environ.get("OCA_MODEL", "").strip()
+    if global_model:
+        for role in env_map:
+            models.setdefault(role, global_model)
+
+    base_url = os.environ.get("OCA_BASE_URL", "").strip() or None
+    return build_oca_config(token, base_url=base_url, models=models or None)
 
 
 # ---------------------------------------------------------------------------
@@ -174,9 +208,36 @@ async def handle_cross_review(  # pylint: disable=too-many-locals
         constraints=constraints,
     )
 
+    # --- Resolve config: explicit config → OCA auto-discovery → error ---
     config = load_config()
+    oca_token: str | None = None
+
+    if can_resolve_credentials(config, mode_str):
+        # Explicit config has working credentials — use it as-is.
+        pass
+    else:
+        # Fall back to OCA auto-discovery.
+        oca_token = find_oca_token()
+        if oca_token is not None:
+            config = _build_oca_config_from_env(oca_token)
+        else:
+            return {
+                "text": (
+                    "Error: No provider credentials found.\n\n"
+                    "Either:\n"
+                    "- Set API keys (ANTHROPIC_API_KEY, OPENAI_API_KEY, etc.)\n"
+                    "- Log into OCA via Cline\n"
+                    "- Set OCA_TOKEN environment variable\n"
+                    "- Write a token to ~/.oca/token"
+                ),
+                "session_id": session_id,
+                "session_status": session_status,
+                "memory_used": memory_used,
+            }
+
     api_key_vars = tuple(
-        entry.api_key_env for entry in config.providers.values() if entry.api_key_env is not None
+        entry.api_key_env for entry in config.providers.values()
+        if entry.api_key_env is not None
     )
 
     # Resolve auth mode
@@ -236,6 +297,10 @@ async def handle_cross_review(  # pylint: disable=too-many-locals
             # pylint: disable=assigning-non-slot,no-member
             request.budget.max_reviewers = min(request.budget.max_reviewers, 1)
 
+    # --- Inject OCA token into env for provider resolution ---
+    if oca_token is not None:
+        os.environ[OCA_TOKEN_ENV] = oca_token
+
     orchestrator = Orchestrator(config, provider_factory=provider_factory)
 
     try:
@@ -243,6 +308,9 @@ async def handle_cross_review(  # pylint: disable=too-many-locals
     except (ConnectionError, TimeoutError, ValueError, RuntimeError) as exc:
         return {"text": f"Error running cross-review: {exc}", "session_id": session_id,
                 "session_status": session_status, "memory_used": memory_used}
+    finally:
+        # Clear token from environment immediately after use
+        os.environ.pop(OCA_TOKEN_ENV, None)
 
     # Inject host-managed warning
     if host_warning is not None:
