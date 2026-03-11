@@ -112,6 +112,16 @@ cp skills/cross-review.md <your-hotl-skills-directory>/cross-review.md
 
 Then invoke via `/hotl:cross-review "Review this architecture"`.
 
+### Cline MCP Tool
+
+When calling `cross_review` from Cline (or any MCP host with session support):
+
+1. On the **first call** in an existing chat where earlier discussion matters, include `prior_context` with a short summary of decisions and constraints — not the full transcript.
+2. On **follow-up calls**, pass the `session_id` returned by the first call. The tool will reload session memory automatically.
+3. To **start a new review thread**, set `new_session: true`. This creates a fresh session even if a `session_id` is provided.
+4. Prefer passing real file contents via `files` (array of `{path, content}`) instead of pasting code into the question.
+5. Do not re-inject the full conversation history — the tool manages its own rolling memory once a session is established.
+
 ## Configuration
 
 Configuration is loaded with the following precedence (highest to lowest):

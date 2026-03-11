@@ -116,10 +116,10 @@ class TestE2EHostManagedReview:
 
         server, call_count = _make_fake_mcp_server()
 
-        result_text = await handle_cross_review(
+        result_text = (await handle_cross_review(
             {"question": "Design a caching layer for multi-tenant SaaS"},
             server=server,
-        )
+        ))["text"]
 
         # Should have rendered markdown output
         assert "Cross-Review Result" in result_text
@@ -142,10 +142,10 @@ class TestE2EHostManagedReview:
 
         server, call_count = _make_fake_mcp_server()
 
-        result_text = await handle_cross_review(
+        result_text = (await handle_cross_review(
             {"question": "Name this service", "mode": "fast"},
             server=server,
-        )
+        ))["text"]
 
         assert "Cross-Review Result" in result_text
         assert "fast" in result_text.lower()
@@ -160,14 +160,14 @@ class TestE2EHostManagedReview:
 
         server, _ = _make_fake_mcp_server()
 
-        result_text = await handle_cross_review(
+        result_text = (await handle_cross_review(
             {
                 "question": "Design a cache",
                 "mode": "fast",
                 "output_format": "json",
             },
             server=server,
-        )
+        ))["text"]
 
         parsed = json.loads(result_text)
         assert "final_recommendation" in parsed
@@ -183,10 +183,10 @@ class TestE2EHostManagedReview:
 
         server, call_count = _make_fake_mcp_server()
 
-        result_text = await handle_cross_review(
+        result_text = (await handle_cross_review(
             {"question": "Design production auth flow", "mode": "arbitration"},
             server=server,
-        )
+        ))["text"]
 
         # In host-managed mode, max_reviewers is capped to 1
         # So arbitration behaves like review: builder + 1 reviewer = 2 calls
@@ -205,10 +205,10 @@ class TestE2EHostManagedFallback:
 
         server, _ = _make_fake_mcp_server()
 
-        result_text = await handle_cross_review(
+        result_text = (await handle_cross_review(
             {"question": "Test auto-detection", "mode": "fast"},
             server=server,
-        )
+        ))["text"]
 
         # Should work (no error) and show host-managed warning
         assert "Error" not in result_text
@@ -243,10 +243,10 @@ class TestE2EHostManagedFallback:
         mock_orch.run = AsyncMock(return_value=mock_result)
 
         with patch("cross_review.mcp_server.Orchestrator", return_value=mock_orch):
-            result_text = await handle_cross_review(
+            result_text = (await handle_cross_review(
                 {"question": "Test", "mode": "fast"},
                 server=server,
-            )
+            ))["text"]
 
         # Should NOT have host-managed warning
         assert "Single-provider" not in result_text
@@ -258,7 +258,7 @@ class TestE2EHostManagedFallback:
         mock_orch.run = AsyncMock(side_effect=RuntimeError("Missing API key for claude"))
 
         with patch("cross_review.mcp_server.Orchestrator", return_value=mock_orch):
-            result_text = await handle_cross_review({"question": "Test"})
+            result_text = (await handle_cross_review({"question": "Test"}))["text"]
 
         # Should get the error from the orchestrator (not from auth resolution)
         assert "Error" in result_text
@@ -273,10 +273,10 @@ class TestE2EHostManagedFallback:
         # Server exists but doesn't have create_message
         server = MagicMock(spec=[])  # empty spec = no attributes
 
-        result_text = await handle_cross_review(
+        result_text = (await handle_cross_review(
             {"question": "Test"},
             server=server,
-        )
+        ))["text"]
 
         # Should get auth error (no keys, no sampling)
         assert "Error" in result_text

@@ -15,6 +15,7 @@ from cross_review.config import load_config
 from cross_review.orchestrator import Orchestrator
 from cross_review.rendering import render
 from cross_review.schemas import ContextPayload, Mode, ReviewRequest
+from cross_review.sessions import RoundRecord, SessionStore
 
 logger = logging.getLogger(__name__)
 
@@ -56,6 +57,34 @@ TOOL_DEFINITION: dict[str, Any] = {
                 "default": "markdown",
                 "description": "Output format",
             },
+            "session_id": {
+                "type": "string",
+                "description": "Explicit cross-review session id for continuity",
+            },
+            "new_session": {
+                "type": "boolean",
+                "default": False,
+                "description": "Force creation of a new session",
+            },
+            "prior_context": {
+                "type": "string",
+                "description": (
+                    "Summary of earlier host discussion, only needed on "
+                    "the first cross-review call in an ongoing chat"
+                ),
+            },
+            "files": {
+                "type": "array",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "path": {"type": "string"},
+                        "content": {"type": "string"},
+                    },
+                    "required": ["path", "content"],
+                },
+                "description": "File contents to include in the review",
+            },
         },
         "required": ["question"],
     },
@@ -70,26 +99,72 @@ TOOL_DEFINITION: dict[str, Any] = {
 async def handle_cross_review(  # pylint: disable=too-many-locals
     arguments: dict[str, Any],
     server: Any = None,
-) -> str:
+    session_store: SessionStore | None = None,
+) -> dict[str, Any]:
     """Handle a cross_review tool call.
 
     Args:
         arguments: Tool arguments matching TOOL_DEFINITION inputSchema.
         server: Optional MCP Server instance for host-managed auth.
+        session_store: Optional SessionStore override (for testing).
 
     Returns:
-        Rendered review result as a string.
+        Dict with ``text`` (rendered result) and session metadata.
     """
     question: str = arguments["question"]
     mode_str: str = arguments.get("mode", "review")
     context_str: str | None = arguments.get("context")
     constraints: list[str] = arguments.get("constraints", [])
     output_format: str = arguments.get("output_format", "markdown")
+    session_id: str | None = arguments.get("session_id")
+    new_session: bool = arguments.get("new_session", False)
+    prior_context: str | None = arguments.get("prior_context")
+    files: list[dict[str, str]] = arguments.get("files", [])
 
-    # Build context payload
-    context = None
+    store = session_store or SessionStore()
+
+    # --- Session resolution ---
+    session_status = "none"
+    memory_used = False
+
+    if new_session or session_id is None:
+        meta = store.create(workspace=arguments.get("_workspace", ""))
+        session_id = meta.session_id
+        session_status = "created"
+    else:
+        try:
+            meta, _ = store.load(session_id)
+            session_status = "resumed"
+        except FileNotFoundError:
+            meta = store.create(workspace=arguments.get("_workspace", ""))
+            session_id = meta.session_id
+            session_status = "created"
+
+    # --- Build context payload ---
+    context_parts: list[str] = []
+
+    # Inject session memory summary for resumed sessions
+    if session_status == "resumed":
+        summary = store.build_context_summary(session_id)
+        if summary:
+            context_parts.append(f"Session memory:\n{summary}")
+            memory_used = True
+
+    # Inject prior_context on first call
+    if prior_context:
+        context_parts.append(f"Prior discussion:\n{prior_context}")
+
+    # Inject file contents
+    for f in files:
+        context_parts.append(f"File: {f['path']}\n```\n{f['content']}\n```")
+
+    # Original context
     if context_str:
-        context = ContextPayload(text=context_str)
+        context_parts.append(context_str)
+
+    context = None
+    if context_parts:
+        context = ContextPayload(text="\n\n".join(context_parts))
 
     # Build request
     request = ReviewRequest(
@@ -134,7 +209,8 @@ async def handle_cross_review(  # pylint: disable=too-many-locals
                 api_key_vars=api_key_vars,
             )
         except RuntimeError as exc:
-            return f"Error: {exc}"
+            return {"text": f"Error: {exc}", "session_id": session_id,
+                    "session_status": session_status, "memory_used": memory_used}
 
         if auth_mode == "host_managed":
             from cross_review.providers.sampling import (
@@ -165,13 +241,35 @@ async def handle_cross_review(  # pylint: disable=too-many-locals
     try:
         result = await orchestrator.run(request)
     except (ConnectionError, TimeoutError, ValueError, RuntimeError) as exc:
-        return f"Error running cross-review: {exc}"
+        return {"text": f"Error running cross-review: {exc}", "session_id": session_id,
+                "session_status": session_status, "memory_used": memory_used}
 
     # Inject host-managed warning
     if host_warning is not None:
         result.trace.warnings.append(host_warning)
 
-    return render(result, output_format=output_format)
+    rendered = render(result, output_format=output_format)
+
+    # --- Persist round and update memory ---
+    round_num = store.next_round_number(session_id)
+    store.append_round(
+        session_id,
+        RoundRecord(
+            round_number=round_num,
+            request_payload={"question": question, "mode": mode_str,
+                             "files": [f["path"] for f in files]},
+            result_payload={"rendered_length": len(rendered),
+                            "confidence": result.confidence.value},
+        ),
+    )
+    store.update_memory(session_id, result)
+
+    return {
+        "text": rendered,
+        "session_id": session_id,
+        "session_status": session_status,
+        "memory_used": memory_used,
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -215,8 +313,18 @@ def run_server() -> None:
         if name != "cross_review":
             return [TextContent(type="text", text=f"Unknown tool: {name}")]
 
-        result_text = await handle_cross_review(arguments, server=server)
-        return [TextContent(type="text", text=result_text)]
+        result = await handle_cross_review(arguments, server=server)
+        import json as _json  # pylint: disable=import-outside-toplevel
+
+        session_meta = _json.dumps({
+            "session_id": result["session_id"],
+            "session_status": result["session_status"],
+            "memory_used": result["memory_used"],
+        })
+        return [
+            TextContent(type="text", text=result["text"]),
+            TextContent(type="text", text=session_meta),
+        ]
 
     init_options = server.create_initialization_options()
 

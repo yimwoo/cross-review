@@ -8,6 +8,7 @@ import pytest
 
 from cross_review.mcp_server import TOOL_DEFINITION, handle_cross_review, run_server
 from cross_review.schemas import Confidence, FinalResult, Mode, Trace
+from cross_review.sessions import SessionStore
 
 
 class TestToolDefinition:
@@ -58,84 +59,93 @@ class TestHandleCrossReview:
         orch.run = AsyncMock(return_value=result)
         return orch
 
-    async def test_minimal_arguments(self, mock_orchestrator):
+    async def test_minimal_arguments(self, mock_orchestrator, tmp_path):
         """Handler should work with just a question."""
+        store = SessionStore(base_dir=tmp_path)
         with patch("cross_review.mcp_server.Orchestrator", return_value=mock_orchestrator):
-            result = await handle_cross_review({"question": "Design a cache"})
+            result = await handle_cross_review({"question": "Design a cache"}, session_store=store)
 
-        assert "Test recommendation" in result
+        assert "Test recommendation" in result["text"]
+        assert result["session_id"].startswith("crs_")
+        assert result["session_status"] == "created"
         mock_orchestrator.run.assert_called_once()
 
-    async def test_with_mode(self, mock_orchestrator):
+    async def test_with_mode(self, mock_orchestrator, tmp_path):
         """Handler should pass mode to ReviewRequest."""
+        store = SessionStore(base_dir=tmp_path)
         with patch("cross_review.mcp_server.Orchestrator", return_value=mock_orchestrator):
             result = await handle_cross_review(
-                {"question": "Design a cache", "mode": "arbitration"}
+                {"question": "Design a cache", "mode": "arbitration"}, session_store=store
             )
 
-        assert "Test recommendation" in result
+        assert "Test recommendation" in result["text"]
         call_args = mock_orchestrator.run.call_args
         request = call_args[0][0]
         assert request.mode.value == "arbitration"
 
-    async def test_with_context(self, mock_orchestrator):
+    async def test_with_context(self, mock_orchestrator, tmp_path):
         """Handler should pass context to ReviewRequest."""
+        store = SessionStore(base_dir=tmp_path)
         with patch("cross_review.mcp_server.Orchestrator", return_value=mock_orchestrator):
             result = await handle_cross_review(
-                {"question": "Review this", "context": "Some file content"}
+                {"question": "Review this", "context": "Some file content"}, session_store=store
             )
 
-        assert "Test recommendation" in result
+        assert "Test recommendation" in result["text"]
         call_args = mock_orchestrator.run.call_args
         request = call_args[0][0]
         assert request.context is not None
-        assert request.context.text == "Some file content"
+        assert "Some file content" in request.context.text
 
-    async def test_with_constraints(self, mock_orchestrator):
+    async def test_with_constraints(self, mock_orchestrator, tmp_path):
         """Handler should pass constraints to ReviewRequest."""
+        store = SessionStore(base_dir=tmp_path)
         with patch("cross_review.mcp_server.Orchestrator", return_value=mock_orchestrator):
             result = await handle_cross_review(
                 {
                     "question": "Review this",
                     "constraints": ["Must use PostgreSQL", "No ORMs"],
-                }
+                }, session_store=store
             )
 
-        assert "Test recommendation" in result
+        assert "Test recommendation" in result["text"]
         call_args = mock_orchestrator.run.call_args
         request = call_args[0][0]
         assert request.constraints == ["Must use PostgreSQL", "No ORMs"]
 
-    async def test_json_output_format(self, mock_orchestrator):
+    async def test_json_output_format(self, mock_orchestrator, tmp_path):
         """Handler should respect output_format parameter."""
+        store = SessionStore(base_dir=tmp_path)
         with patch("cross_review.mcp_server.Orchestrator", return_value=mock_orchestrator):
             result = await handle_cross_review(
-                {"question": "Review this", "output_format": "json"}
+                {"question": "Review this", "output_format": "json"}, session_store=store
             )
 
         # JSON output should be parseable
-        parsed = json.loads(result)
+        parsed = json.loads(result["text"])
         assert "final_recommendation" in parsed
 
-    async def test_default_mode_is_review(self, mock_orchestrator):
+    async def test_default_mode_is_review(self, mock_orchestrator, tmp_path):
         """Default mode should be review when not specified."""
+        store = SessionStore(base_dir=tmp_path)
         with patch("cross_review.mcp_server.Orchestrator", return_value=mock_orchestrator):
-            await handle_cross_review({"question": "Test"})
+            await handle_cross_review({"question": "Test"}, session_store=store)
 
         call_args = mock_orchestrator.run.call_args
         request = call_args[0][0]
         assert request.mode.value == "review"
 
-    async def test_error_handling(self):
+    async def test_error_handling(self, tmp_path):
         """Handler should return error message on failure."""
         mock_orch = MagicMock()
         mock_orch.run = AsyncMock(side_effect=RuntimeError("Provider unavailable"))
+        store = SessionStore(base_dir=tmp_path)
 
         with patch("cross_review.mcp_server.Orchestrator", return_value=mock_orch):
-            result = await handle_cross_review({"question": "Test"})
+            result = await handle_cross_review({"question": "Test"}, session_store=store)
 
-        assert "Error" in result
-        assert "Provider unavailable" in result
+        assert "Error" in result["text"]
+        assert "Provider unavailable" in result["text"]
 
 
 class TestRunServer:
@@ -186,7 +196,9 @@ class TestHostManagedAuth:
         orch.run = AsyncMock(return_value=result)
         return orch
 
-    async def test_host_managed_uses_sampling_factory(self, mock_orchestrator, monkeypatch):
+    async def test_host_managed_uses_sampling_factory(
+        self, mock_orchestrator, monkeypatch, tmp_path,
+    ):
         """When host-managed, Orchestrator should receive a custom provider_factory."""
         monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
         monkeypatch.delenv("OPENAI_API_KEY", raising=False)
@@ -194,6 +206,7 @@ class TestHostManagedAuth:
 
         mock_server = MagicMock()
         mock_server.create_message = AsyncMock()
+        store = SessionStore(base_dir=tmp_path)
 
         with patch(
             "cross_review.mcp_server.Orchestrator", return_value=mock_orchestrator
@@ -201,6 +214,7 @@ class TestHostManagedAuth:
             await handle_cross_review(
                 {"question": "Test"},
                 server=mock_server,
+                session_store=store,
             )
 
         # Orchestrator should have been called with a provider_factory
@@ -213,7 +227,7 @@ class TestHostManagedAuth:
             # Positional args: config, provider_factory
             assert len(call_kwargs.args) >= 2 or "provider_factory" in (call_kwargs.kwargs or {})
 
-    async def test_host_managed_warning_in_output(self, mock_orchestrator, monkeypatch):
+    async def test_host_managed_warning_in_output(self, mock_orchestrator, monkeypatch, tmp_path):
         """Host-managed mode should include a warning in the output."""
         monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
         monkeypatch.delenv("OPENAI_API_KEY", raising=False)
@@ -221,32 +235,39 @@ class TestHostManagedAuth:
 
         mock_server = MagicMock()
         mock_server.create_message = AsyncMock()
+        store = SessionStore(base_dir=tmp_path)
 
         with patch("cross_review.mcp_server.Orchestrator", return_value=mock_orchestrator):
             result = await handle_cross_review(
                 {"question": "Test"},
                 server=mock_server,
+                session_store=store,
             )
 
-        assert "Single-provider" in result or "single-provider" in result
+        text = result["text"]
+        assert "Single-provider" in text or "single-provider" in text
 
-    async def test_provider_managed_when_keys_set(self, mock_orchestrator, monkeypatch):
+    async def test_provider_managed_when_keys_set(self, mock_orchestrator, monkeypatch, tmp_path):
         """When API keys are set, should use provider_managed even with server."""
         monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-test")
 
         mock_server = MagicMock()
         mock_server.create_message = AsyncMock()
+        store = SessionStore(base_dir=tmp_path)
 
         with patch("cross_review.mcp_server.Orchestrator", return_value=mock_orchestrator):
             result = await handle_cross_review(
                 {"question": "Test"},
                 server=mock_server,
+                session_store=store,
             )
 
         # Should not have single-provider warning
-        assert "Single-provider" not in result
+        assert "Single-provider" not in result["text"]
 
-    async def test_provider_managed_with_custom_provider_key(self, mock_orchestrator, monkeypatch):
+    async def test_provider_managed_with_custom_provider_key(
+        self, mock_orchestrator, monkeypatch, tmp_path,
+    ):
         """Custom provider keys from config should trigger provider-managed auth."""
         monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
         monkeypatch.delenv("OPENAI_API_KEY", raising=False)
@@ -255,6 +276,7 @@ class TestHostManagedAuth:
 
         mock_server = MagicMock()
         mock_server.create_message = AsyncMock()
+        store = SessionStore(base_dir=tmp_path)
 
         with patch("cross_review.mcp_server.load_config") as mock_load_config:
             cfg = MagicMock()
@@ -267,6 +289,7 @@ class TestHostManagedAuth:
                 result = await handle_cross_review(
                     {"question": "Test"},
                     server=mock_server,
+                    session_store=store,
                 )
 
-        assert "Single-provider" not in result
+        assert "Single-provider" not in result["text"]
