@@ -94,13 +94,15 @@ info "MCP server verified."
 # --- Step 3: Configure Cline MCP ---
 info "Configuring Cline MCP server..."
 
-# Cline stores MCP config in VS Code settings or a dedicated file.
-# The standard location depends on the Cline version:
-#   - Newer: ~/.cline/data/settings/cline_mcp_settings.json
-#   - Older: VS Code settings.json
+# Cline stores MCP config in VS Code's globalStorage.
+# The primary location on macOS is under ~/Library/Application Support/Code/...
+# We also check legacy ~/.cline paths as fallbacks.
 
 CLINE_MCP_CONFIG=""
+# VS Code globalStorage path (primary — works on macOS)
+VSCODE_CLINE_DIR="$HOME/Library/Application Support/Code/User/globalStorage/saoudrizwan.claude-dev/settings"
 for candidate in \
+    "$VSCODE_CLINE_DIR/cline_mcp_settings.json" \
     "$HOME/.cline/data/settings/cline_mcp_settings.json" \
     "$HOME/.cline/mcp_settings.json"; do
     if [ -f "$candidate" ]; then
@@ -110,15 +112,18 @@ for candidate in \
 done
 
 if [ -z "$CLINE_MCP_CONFIG" ]; then
-    # Create the settings directory if it doesn't exist
-    CLINE_MCP_DIR="$HOME/.cline/data/settings"
-    if [ -d "$HOME/.cline/data" ]; then
-        mkdir -p "$CLINE_MCP_DIR"
-        CLINE_MCP_CONFIG="$CLINE_MCP_DIR/cline_mcp_settings.json"
+    # Try to create in the VS Code globalStorage path first
+    if [ -d "$VSCODE_CLINE_DIR" ]; then
+        CLINE_MCP_CONFIG="$VSCODE_CLINE_DIR/cline_mcp_settings.json"
+        echo '{"mcpServers":{}}' > "$CLINE_MCP_CONFIG"
+        info "Created new Cline MCP config at $CLINE_MCP_CONFIG"
+    elif [ -d "$(dirname "$VSCODE_CLINE_DIR")" ]; then
+        mkdir -p "$VSCODE_CLINE_DIR"
+        CLINE_MCP_CONFIG="$VSCODE_CLINE_DIR/cline_mcp_settings.json"
         echo '{"mcpServers":{}}' > "$CLINE_MCP_CONFIG"
         info "Created new Cline MCP config at $CLINE_MCP_CONFIG"
     else
-        warn "Cline data directory not found. Is Cline installed?"
+        warn "Cline VS Code extension directory not found. Is Cline installed?"
         echo ""
         echo "  To configure manually, add this to your Cline MCP settings:"
         echo ""
