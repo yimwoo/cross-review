@@ -153,9 +153,10 @@ class TestFullPipelineReviewMode:
         assert rs.verdict != ""
         assert rs.key_concern != ""
 
-        # Final recommendation should contain the builder recommendation
-        assert "Builder recommends" in result.final_recommendation
-        assert _BUILDER_RESULT.recommendation in result.final_recommendation
+        # Final recommendation should start with the builder recommendation prose
+        assert result.final_recommendation.startswith(_BUILDER_RESULT.recommendation)
+        # Should contain bullet stats
+        assert "supporting findings" in result.final_recommendation
 
         # All three render formats should work without error
         md = render_markdown(result)
@@ -257,8 +258,9 @@ class TestFullPipelineArbitrationMode:
         # Builder result in trace
         assert result.trace.builder_result is not None
 
-        # Final recommendation present
-        assert "Builder recommends" in result.final_recommendation
+        # Final recommendation should start with the builder recommendation prose
+        assert result.final_recommendation.startswith(_BUILDER_RESULT.recommendation)
+        assert "supporting findings" in result.final_recommendation
 
         # Token tracking: 3 calls x 1500 = 4500
         assert result.trace.total_tokens_actual == 4500
@@ -344,11 +346,8 @@ class TestFullPipelineFastMode:
         assert result.reviewer_summaries == []
         assert result.builder_model != ""
 
-        # Builder recommendation is used directly as final_recommendation
-        assert (
-            "Builder recommends" in result.final_recommendation
-            or result.final_recommendation == _BUILDER_RESULT.recommendation
-        )
+        # Builder recommendation is used directly as final_recommendation in fast mode
+        assert result.final_recommendation == _BUILDER_RESULT.recommendation
 
         # Builder result in trace
         assert result.trace.builder_result is not None

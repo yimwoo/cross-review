@@ -227,7 +227,7 @@ class Reconciler:
         conflicting_findings: list[ReconciledCluster],
         likely_shortcuts: list[Finding],
     ) -> str:
-        """Build the deterministic final recommendation string.
+        """Build the final recommendation as prose + bullet stats.
 
         Args:
             builder_result: The Builder's output.
@@ -236,13 +236,15 @@ class Reconciler:
             likely_shortcuts: Findings flagged as shortcut risks.
 
         Returns:
-            A summary recommendation string.
+            A multi-line recommendation with prose on the first line
+            followed by bullet-point statistics.
         """
         return (
-            f"Builder recommends: {builder_result.recommendation}. "
-            f"Review summary: {len(consensus_findings)} supporting findings, "
-            f"{len(conflicting_findings)} conflicting findings, "
-            f"{len(likely_shortcuts)} shortcut warnings."
+            f"{builder_result.recommendation}\n"
+            f"\n"
+            f"- {len(consensus_findings)} supporting findings\n"
+            f"- {len(conflicting_findings)} conflicting findings\n"
+            f"- {len(likely_shortcuts)} shortcut warnings"
         )
 
     @staticmethod

@@ -190,10 +190,13 @@ def render_summary(result: FinalResult) -> str:
     conflict_count = len(result.conflicting_findings)
     shortcut_count = len(result.likely_shortcuts)
 
+    # Use only the first line (prose part) of the recommendation
+    recommendation_line = result.final_recommendation.split("\n", 1)[0]
+
     return (
         f"[{result.mode.value}] confidence={result.confidence.value} "
         f"findings={finding_count} conflicts={conflict_count} "
-        f"shortcuts={shortcut_count} \u2014 {result.final_recommendation}"
+        f"shortcuts={shortcut_count} \u2014 {recommendation_line}"
     )
 
 

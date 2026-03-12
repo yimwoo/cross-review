@@ -267,6 +267,31 @@ class TestFinalOutputMapping:
         )
         assert len(result.decision_points) >= 1
 
+    def test_recommendation_format_multiline(self):
+        """Final recommendation should be prose + bullet stats."""
+        finding = _make_finding()
+        reviewer_result = ReviewerResult(
+            reviewer_type=ReviewerType.CRITIC,
+            overall_confidence=Confidence.HIGH,
+            findings=[finding],
+            source_model="gpt-5",
+        )
+        reconciler = Reconciler()
+        result = reconciler.reconcile(
+            builder_result=_make_builder_result(),
+            reviewer_results=[reviewer_result],
+            mode=Mode.REVIEW,
+            request_id="test-123",
+        )
+        rec = result.final_recommendation
+        lines = rec.strip().split("\n")
+        # First line is the recommendation prose
+        assert lines[0] == "Start with FastAPI monolith"
+        # Should contain bullet stats
+        assert "- 1 supporting findings" in rec
+        assert "- 0 conflicting findings" in rec
+        assert "- 0 shortcut warnings" in rec
+
     def test_confidence_is_minimum_of_reviewers(self):
         """Confidence should be the minimum of all reviewer overall_confidence values."""
         f1 = _make_finding(reviewer_type=ReviewerType.CRITIC, source_model="gpt-5")
