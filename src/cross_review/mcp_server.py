@@ -331,7 +331,7 @@ async def handle_cross_review(  # pylint: disable=too-many-locals
 
     try:
         result = await orchestrator.run(request)
-    except (ConnectionError, TimeoutError, ValueError, RuntimeError) as exc:
+    except (ConnectionError, TimeoutError, ValueError, RuntimeError, TypeError, KeyError, AttributeError) as exc:
         return {"text": f"Error running cross-review: {exc}", "session_id": session_id,
                 "session_status": session_status, "memory_used": memory_used}
     finally:
@@ -421,16 +421,25 @@ def run_server() -> None:
         if name != "cross_review":
             return [TextContent(type="text", text=f"Unknown tool: {name}")]
 
-        from cross_review._request_cache import fingerprint  # noqa: PLC0415
+        try:
+            from cross_review._request_cache import fingerprint  # noqa: PLC0415
 
-        workspace_root = Path(arguments.get("_workspace", "")).resolve() or Path.cwd()
-        key = fingerprint(arguments, workspace_root=workspace_root)
-        result = await _dedup_cache.get_or_run(
-            key, lambda: handle_cross_review(arguments, server=server)
-        )
+            workspace_root = Path(arguments.get("_workspace", "")).resolve() or Path.cwd()
+            key = fingerprint(arguments, workspace_root=workspace_root)
+            result = await _dedup_cache.get_or_run(
+                key, lambda: handle_cross_review(arguments, server=server)
+            )
 
-        text = result["text"]
-        return [TextContent(type="text", text=text)]
+            text = result["text"]
+            return [TextContent(type="text", text=text)]
+        except Exception as exc:  # noqa: BLE001
+            logger.exception("Unhandled error in call_tool")
+            error_msg = (
+                f"# Cross-Review Error\n\n"
+                f"**{type(exc).__name__}:** {exc}\n\n"
+                f"Check server logs for details."
+            )
+            return [TextContent(type="text", text=error_msg)]
 
     init_options = server.create_initialization_options()
 
