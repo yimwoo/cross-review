@@ -151,3 +151,9 @@ class TestModelId:
             provider_name="ollama",
         )
         assert adapter.model_id() == "ollama/llama3"
+
+    def test_sampling_adapter_model_id(self):
+        from cross_review.providers.sampling import SamplingAdapter
+
+        adapter = SamplingAdapter(server=None, host_provider="claude", model_hint="claude-sonnet-4-20250514")
+        assert adapter.model_id() == "host/sampling"
