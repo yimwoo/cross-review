@@ -55,6 +55,10 @@ class GeminiAdapter:
         """
         return "gemini"
 
+    def model_id(self) -> str:
+        """Return compound identifier."""
+        return f"google/{self._model}"
+
     async def call(  # pylint: disable=too-many-positional-arguments,too-many-locals
         self,
         system_prompt: str,

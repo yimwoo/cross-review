@@ -39,6 +39,10 @@ class ClaudeAdapter:
         """
         return "claude"
 
+    def model_id(self) -> str:
+        """Return compound identifier."""
+        return f"anthropic/{self._model}"
+
     async def call(  # pylint: disable=too-many-positional-arguments
         self,
         system_prompt: str,

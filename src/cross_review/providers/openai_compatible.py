@@ -102,6 +102,12 @@ class OpenAICompatibleAdapter:
         """Return the configured provider name."""
         return self._provider_name
 
+    def model_id(self) -> str:
+        """Return compound identifier."""
+        if "/" in self._model:
+            return self._model
+        return f"{self._provider_name}/{self._model}"
+
     @staticmethod
     def _build_token_usage(usage: object | None) -> TokenUsage:
         """Normalize provider usage metadata into TokenUsage."""

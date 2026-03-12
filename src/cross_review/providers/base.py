@@ -98,6 +98,9 @@ class ProviderAdapter(Protocol):
     def name(self) -> str:
         """Return a human-readable provider name, e.g. 'claude'."""
 
+    def model_id(self) -> str:
+        """Return a compound identifier like 'provider/model'."""
+
 
 def create_provider(
     provider_name: str,

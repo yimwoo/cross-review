@@ -6,6 +6,9 @@ import pytest
 
 from cross_review.config import AppConfig, ProviderEntry, RoleConfig, resolve_model
 from cross_review.providers.base import check_api_key, create_provider, resolve_api_key
+from cross_review.providers.claude import ClaudeAdapter
+from cross_review.providers.gemini import GeminiAdapter
+from cross_review.providers.openai_compatible import OpenAICompatibleAdapter
 
 
 class TestCheckApiKey:
@@ -116,3 +119,35 @@ class TestResolveModel:
         role = RoleConfig(provider="ollama", model=None)
         provider = ProviderEntry(type="openai_compatible", default_model="llama3.2")
         assert resolve_model("builder", role, provider) == "llama3.2"
+
+
+class TestModelId:
+    """Tests for the model_id() method on each provider adapter."""
+
+    def test_claude_adapter_model_id(self):
+        adapter = ClaudeAdapter(model="claude-sonnet-4-20250514")
+        assert adapter.model_id() == "anthropic/claude-sonnet-4-20250514"
+
+    def test_gemini_adapter_model_id(self):
+        adapter = GeminiAdapter(model="gemini-2.5-pro")
+        assert adapter.model_id() == "google/gemini-2.5-pro"
+
+    def test_openai_compatible_adapter_model_id(self):
+        # Model already has provider prefix
+        adapter = OpenAICompatibleAdapter(
+            base_url="http://localhost:11434/v1",
+            api_key=None,
+            model="oca/gpt-5.4",
+            provider_name="oca",
+        )
+        assert adapter.model_id() == "oca/gpt-5.4"
+
+    def test_openai_compatible_adapter_model_id_no_prefix(self):
+        # Model without provider prefix
+        adapter = OpenAICompatibleAdapter(
+            base_url="http://localhost:11434/v1",
+            api_key=None,
+            model="llama3",
+            provider_name="ollama",
+        )
+        assert adapter.model_id() == "ollama/llama3"

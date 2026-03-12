@@ -90,6 +90,10 @@ class SamplingAdapter:
         """
         return f"{self._host_provider}-via-host"
 
+    def model_id(self) -> str:
+        """Return compound identifier."""
+        return "host/sampling"
+
     async def call(  # pylint: disable=too-many-positional-arguments
         self,
         system_prompt: str,
