@@ -297,7 +297,7 @@ def build_oca_config(
 _MODE_ROLES: dict[str, tuple[str, ...]] = {
     "fast": ("builder",),
     "review": ("builder", "critic", "advisor"),
-    "arbitration": ("builder", "critic", "advisor"),
+    "deep": ("builder", "critic", "advisor"),
     "auto": ("builder", "critic", "advisor"),
 }
 

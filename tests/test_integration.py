@@ -213,14 +213,14 @@ class TestFullPipelineReviewMode:
 
 
 # ---------------------------------------------------------------------------
-# Arbitration mode (builder + 2 reviewers)
+# Deep mode (builder + 2 reviewers)
 # ---------------------------------------------------------------------------
 
 
-class TestFullPipelineArbitrationMode:
-    """Full pipeline in ARBITRATION mode: builder + 2 reviewers in parallel."""
+class TestFullPipelineDeepMode:
+    """Full pipeline in DEEP mode: builder + 2 reviewers in parallel."""
 
-    async def test_arbitration_mode_end_to_end(self):
+    async def test_deep_mode_end_to_end(self):
         config = AppConfig()
         factory = _make_mock_provider_factory()
         events: list[str] = []
@@ -229,12 +229,12 @@ class TestFullPipelineArbitrationMode:
         request = ReviewRequest(
             request_id="integration-arb-001",
             question="Review this authentication migration plan for production security",
-            mode=Mode.ARBITRATION,
+            mode=Mode.DEEP,
         )
         result = await orch.run(request)
 
         assert isinstance(result, FinalResult)
-        assert result.mode == Mode.ARBITRATION
+        assert result.mode == Mode.DEEP
         assert result.request_id == "integration-arb-001"
 
         # Should have exactly 3 provider calls (builder + 2 reviewers)
@@ -271,12 +271,12 @@ class TestFullPipelineArbitrationMode:
 
         js = render_json(result)
         parsed = json.loads(js)
-        assert parsed["mode"] == "arbitration"
+        assert parsed["mode"] == "deep"
 
         summary = render_summary(result)
-        assert "[arbitration]" in summary
+        assert "[deep]" in summary
 
-    async def test_arbitration_mode_call_log_order(self):
+    async def test_deep_mode_call_log_order(self):
         """Verify the mock factory logged builder first, then reviewers."""
         config = AppConfig()
         factory = _make_mock_provider_factory()
@@ -284,7 +284,7 @@ class TestFullPipelineArbitrationMode:
 
         request = ReviewRequest(
             question="Review this authentication migration for production security",
-            mode=Mode.ARBITRATION,
+            mode=Mode.DEEP,
         )
         await orch.run(request)
 
@@ -292,8 +292,8 @@ class TestFullPipelineArbitrationMode:
         assert log[0] == "builder"
         assert log.count("reviewer") == 2
 
-    async def test_arbitration_consensus_with_multiple_reviewers(self):
-        """In arbitration mode with identical findings from 2 reviewers,
+    async def test_deep_consensus_with_multiple_reviewers(self):
+        """In deep mode with identical findings from 2 reviewers,
         consensus_strength >= 2 should produce consensus findings."""
         config = AppConfig()
         factory = _make_mock_provider_factory()
@@ -301,7 +301,7 @@ class TestFullPipelineArbitrationMode:
 
         request = ReviewRequest(
             question="Review this authentication migration for production security",
-            mode=Mode.ARBITRATION,
+            mode=Mode.DEEP,
         )
         result = await orch.run(request)
 

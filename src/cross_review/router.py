@@ -119,13 +119,13 @@ def choose_mode(
 
     Routing layers (evaluated top-to-bottom, first match wins):
 
-    1. **Explicit mode**: if the caller chose FAST, REVIEW, or ARBITRATION
+    1. **Explicit mode**: if the caller chose FAST, REVIEW, or DEEP
        (anything other than AUTO), honour that choice immediately.
     2. **Minimum-complexity gate**: if the prompt is shorter than
        ``MIN_COMPLEXITY_WORD_THRESHOLD`` words *and* carries no context
        *and* contains no technical keywords, route to FAST.
     3. **Heuristic signals**: scan the prompt for high-risk terms
-       (-> ARBITRATION) then medium-risk terms (-> REVIEW).
+       (-> DEEP) then medium-risk terms (-> REVIEW).
     4. **Default**: fall back to REVIEW.
     """
     # Layer 1: explicit mode pass-through
@@ -145,7 +145,7 @@ def choose_mode(
 
     # Layer 3: heuristic keyword signals
     if _contains_high_risk(words):
-        return Mode.ARBITRATION
+        return Mode.DEEP
 
     if _contains_medium_risk(words):
         return Mode.REVIEW

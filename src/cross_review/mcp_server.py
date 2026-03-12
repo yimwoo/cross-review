@@ -47,7 +47,7 @@ TOOL_DEFINITION: dict[str, Any] = {
             },
             "mode": {
                 "type": "string",
-                "enum": ["fast", "review", "arbitration", "auto"],
+                "enum": ["fast", "review", "deep", "auto"],
                 "default": "review",
                 "description": "Execution mode",
             },

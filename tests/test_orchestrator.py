@@ -218,10 +218,10 @@ class TestReviewMode:
         assert len(result.trace.providers_used) >= 1
 
 
-class TestArbitrationMode:
-    """Arbitration mode: 3 calls (builder + 2 reviewers)."""
+class TestDeepMode:
+    """Deep mode: 3 calls (builder + 2 reviewers)."""
 
-    async def test_arbitration_mode_three_calls(self):
+    async def test_deep_mode_three_calls(self):
         config = AppConfig()
         events: list[str] = []
         factory = _make_mock_provider_factory()
@@ -229,25 +229,25 @@ class TestArbitrationMode:
 
         request = ReviewRequest(
             question="Review this auth migration plan for production security",
-            mode=Mode.ARBITRATION,
+            mode=Mode.DEEP,
         )
         result = await orch.run(request)
 
         assert isinstance(result, FinalResult)
-        assert result.mode == Mode.ARBITRATION
+        assert result.mode == Mode.DEEP
         assert result.trace.total_calls == 3
         # Both critic and advisor reviewers
         assert len(result.selected_roles) == 2
 
-    async def test_arbitration_parallel_reviewers(self):
-        """Verify multiple reviewer roles are used in arbitration."""
+    async def test_deep_parallel_reviewers(self):
+        """Verify multiple reviewer roles are used in deep mode."""
         config = AppConfig()
         factory = _make_mock_provider_factory()
         orch = Orchestrator(config, provider_factory=factory)
 
         request = ReviewRequest(
             question="Review security architecture",
-            mode=Mode.ARBITRATION,
+            mode=Mode.DEEP,
         )
         result = await orch.run(request)
 
@@ -268,13 +268,13 @@ class TestPartialFailure:
 
         request = ReviewRequest(
             question="Review auth migration plan",
-            mode=Mode.ARBITRATION,
+            mode=Mode.DEEP,
         )
         result = await orch.run(request)
 
         assert isinstance(result, FinalResult)
         # Should still produce a result despite one reviewer failing
-        assert result.mode == Mode.ARBITRATION
+        assert result.mode == Mode.DEEP
         # At least the successful reviewer should be present
         assert len(result.selected_roles) >= 1
         # Trace should have a warning about the failure
@@ -320,7 +320,7 @@ class TestProgressEvents:
 
 
 class TestMaxReviewersBudget:
-    """Budget max_reviewers limits reviewer count in arbitration."""
+    """Budget max_reviewers limits reviewer count in deep mode."""
 
     async def test_max_reviewers_limits_roles(self):
         config = AppConfig()
@@ -334,7 +334,7 @@ class TestMaxReviewersBudget:
 
         request = ReviewRequest(
             question="Review auth plan",
-            mode=Mode.ARBITRATION,
+            mode=Mode.DEEP,
             budget=request_budget_with_max_reviewers(2),
         )
         result = await orch.run(request)

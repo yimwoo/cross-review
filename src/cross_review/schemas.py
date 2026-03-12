@@ -18,7 +18,7 @@ class Mode(str, Enum):
 
     FAST = "fast"
     REVIEW = "review"
-    ARBITRATION = "arbitration"
+    DEEP = "deep"
     AUTO = "auto"
 
 

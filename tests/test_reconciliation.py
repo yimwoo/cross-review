@@ -108,8 +108,8 @@ class TestDegradedOutput:
 
 
 class TestFinalOutputMapping:
-    def test_consensus_findings_in_arbitration(self):
-        """Consensus findings = clusters with strength >= 2 in arbitration."""
+    def test_consensus_findings_in_deep(self):
+        """Consensus findings = clusters with strength >= 2 in deep."""
         f1 = _make_finding(
             reviewer_type=ReviewerType.CRITIC,
             source_model="gpt-5",
@@ -135,13 +135,13 @@ class TestFinalOutputMapping:
                     findings=[f2],
                 ),
             ],
-            mode=Mode.ARBITRATION,
+            mode=Mode.DEEP,
             request_id="test-456",
         )
         assert len(result.consensus_findings) >= 1
 
-    def test_arbitration_mode_excludes_low_consensus(self):
-        """In arbitration mode, clusters with strength < 2 are excluded."""
+    def test_deep_mode_excludes_low_consensus(self):
+        """In deep mode, clusters with strength < 2 are excluded."""
         f1 = _make_finding(
             reviewer_type=ReviewerType.CRITIC,
             source_model="gpt-5",
@@ -156,7 +156,7 @@ class TestFinalOutputMapping:
                     findings=[f1],
                 ),
             ],
-            mode=Mode.ARBITRATION,
+            mode=Mode.DEEP,
             request_id="test-arb-low",
         )
         assert len(result.consensus_findings) == 0

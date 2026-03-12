@@ -8,14 +8,14 @@ local reconciliation, and decision-support output.
 The user provides a technical question. Determine the appropriate mode:
 - `fast` for brainstorming, naming, low-risk tasks
 - `review` (default) for design review, API planning, schema choices
-- `arbitration` for auth, security, production architecture, migrations
+- `deep` for auth, security, production architecture, migrations
 
 ## Steps
 
 1. Identify the question from the user's input: $ARGUMENTS
 2. Choose mode based on question complexity and risk:
    - If the question involves auth, security, secrets, production, migration,
-     or infrastructure → use `arbitration`
+     or infrastructure → use `deep`
    - If the question involves API design, schema, database, caching,
      architecture → use `review`
    - If the question is simple brainstorming or naming → use `fast`

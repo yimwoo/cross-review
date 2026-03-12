@@ -25,7 +25,7 @@ class TestToolDefinition:
     def test_mode_enum(self):
         """Mode should have correct enum values."""
         mode_prop = TOOL_DEFINITION["inputSchema"]["properties"]["mode"]
-        assert set(mode_prop["enum"]) == {"fast", "review", "arbitration", "auto"}
+        assert set(mode_prop["enum"]) == {"fast", "review", "deep", "auto"}
 
     def test_output_format_enum(self):
         """Output format should have correct enum values."""
@@ -75,13 +75,13 @@ class TestHandleCrossReview:
         store = SessionStore(base_dir=tmp_path)
         with patch("cross_review.mcp_server.Orchestrator", return_value=mock_orchestrator):
             result = await handle_cross_review(
-                {"question": "Design a cache", "mode": "arbitration"}, session_store=store
+                {"question": "Design a cache", "mode": "deep"}, session_store=store
             )
 
         assert "Test recommendation" in result["text"]
         call_args = mock_orchestrator.run.call_args
         request = call_args[0][0]
-        assert request.mode.value == "arbitration"
+        assert request.mode.value == "deep"
 
     async def test_with_context(self, mock_orchestrator, tmp_path):
         """Handler should pass context to ReviewRequest."""

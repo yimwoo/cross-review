@@ -24,7 +24,7 @@ def main(ctx: click.Context) -> None:
 @click.argument("question")
 @click.option(
     "--mode",
-    type=click.Choice(["fast", "review", "arbitration", "auto"], case_sensitive=False),
+    type=click.Choice(["fast", "review", "deep", "auto"], case_sensitive=False),
     default=None,
     help="Execution mode. Default: review.",
 )

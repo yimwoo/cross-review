@@ -116,7 +116,7 @@ class Orchestrator:
         2. Call builder (with retry)
         3. If fast mode: return builder result wrapped in FinalResult
         4. Determine reviewer roles
-        5. Run reviewers (parallel for arbitration via asyncio.gather)
+        5. Run reviewers (parallel for deep via asyncio.gather)
         6. Handle partial failures
         7. Reconcile results
         8. Return FinalResult with trace data
@@ -229,7 +229,7 @@ class Orchestrator:
         """Return the list of (role_name, role_config) pairs for the given mode.
 
         - REVIEW: ["critic"] only.
-        - ARBITRATION: all configured reviewer roles, up to max_reviewers.
+        - DEEP: all configured reviewer roles, up to max_reviewers.
         """
         if mode == Mode.REVIEW:
             role_name = "critic"
@@ -238,7 +238,7 @@ class Orchestrator:
                 raise ValueError("No critic role configured")
             return [(role_name, role_cfg)]
 
-        # ARBITRATION: collect all reviewer roles (those in the type map), limited by budget
+        # DEEP: collect all reviewer roles (those in the type map), limited by budget
         reviewer_roles: list[tuple[str, RoleConfig]] = []
         for name, cfg in self._config.roles.items():
             if name in _ROLE_TO_REVIEWER_TYPE:
@@ -255,7 +255,7 @@ class Orchestrator:
         budget_guard: BudgetGuard,
         tracer: RunTracer,
     ) -> list[ReviewerResult]:
-        """Run reviewer calls, in parallel for arbitration mode.
+        """Run reviewer calls, in parallel for deep mode.
 
         Handles partial failures: if one reviewer fails, continue with
         degraded output (§16.3).

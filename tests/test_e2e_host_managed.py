@@ -185,8 +185,8 @@ class TestE2EHostManagedReview:
         # Warning should appear in trace.warnings
         assert any("Single-provider" in w for w in parsed["trace"]["warnings"])
 
-    async def test_reviewer_cap_in_arbitration_mode(self, monkeypatch):
-        """Arbitration mode in host-managed should cap at 1 reviewer (not 2)."""
+    async def test_reviewer_cap_in_deep_mode(self, monkeypatch):
+        """Deep mode in host-managed should cap at 1 reviewer (not 2)."""
         monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
         monkeypatch.delenv("OPENAI_API_KEY", raising=False)
         monkeypatch.delenv("GEMINI_API_KEY", raising=False)
@@ -194,12 +194,12 @@ class TestE2EHostManagedReview:
         server, call_count = _make_fake_mcp_server()
 
         result_text = (await handle_cross_review(
-            {"question": "Design production auth flow", "mode": "arbitration"},
+            {"question": "Design production auth flow", "mode": "deep"},
             server=server,
         ))["text"]
 
         # In host-managed mode, max_reviewers is capped to 1
-        # So arbitration behaves like review: builder + 1 reviewer = 2 calls
+        # So deep behaves like review: builder + 1 reviewer = 2 calls
         assert call_count[0] == 2
         # Host-managed warning is in trace.warnings (visible via verbose or JSON)
 

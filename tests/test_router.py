@@ -40,9 +40,9 @@ class TestExplicitMode:
         result = choose_mode(_request("anything", mode=Mode.REVIEW), _router_config())
         assert result is Mode.REVIEW
 
-    def test_explicit_arbitration_respected(self):
-        result = choose_mode(_request("anything", mode=Mode.ARBITRATION), _router_config())
-        assert result is Mode.ARBITRATION
+    def test_explicit_deep_respected(self):
+        result = choose_mode(_request("anything", mode=Mode.DEEP), _router_config())
+        assert result is Mode.DEEP
 
 
 # ── Layer 2: Minimum-complexity gate (AUTO mode) ─────────────────────
@@ -61,10 +61,10 @@ class TestMinimumComplexityGate:
         result = choose_mode(_request("how does this work", context=ctx), _router_config())
         assert result is Mode.REVIEW
 
-    def test_short_prompt_with_tech_keyword_goes_arbitration(self):
+    def test_short_prompt_with_tech_keyword_goes_deep(self):
         """Short prompt containing a high-risk keyword should escalate."""
         result = choose_mode(_request("fix the auth bug"), _router_config())
-        assert result is Mode.ARBITRATION
+        assert result is Mode.DEEP
 
 
 # ── Layer 3: Heuristic signals ───────────────────────────────────────
@@ -73,19 +73,19 @@ class TestMinimumComplexityGate:
 class TestHeuristicSignals:
     """Technical keywords in the prompt steer mode selection."""
 
-    def test_auth_keyword_triggers_arbitration(self):
+    def test_auth_keyword_triggers_deep(self):
         result = choose_mode(
             _request("Review the authentication changes in this PR"),
             _router_config(),
         )
-        assert result is Mode.ARBITRATION
+        assert result is Mode.DEEP
 
-    def test_migration_keyword_triggers_arbitration(self):
+    def test_migration_keyword_triggers_deep(self):
         result = choose_mode(
             _request("Check this database migration script for safety issues"),
             _router_config(),
         )
-        assert result is Mode.ARBITRATION
+        assert result is Mode.DEEP
 
     def test_api_design_triggers_review(self):
         result = choose_mode(

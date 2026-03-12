@@ -1,6 +1,6 @@
 # cross-review
 
-Multi-model structured technical review engine. Sends your technical question to a **Builder** (proposes a solution), then to one or more **Reviewers** (critique it), and reconciles findings locally in Python — no LLM arbitration. Produces structured decision-support output with consensus findings, conflicts, shortcut warnings, and decision points.
+Multi-model structured technical review engine. Sends your technical question to a **Builder** (proposes a solution), then to one or more **Reviewers** (critique it), and reconciles findings locally in Python — no LLM deep-review pass. Produces structured decision-support output with consensus findings, conflicts, shortcut warnings, and decision points.
 
 ## How It Works
 
@@ -61,8 +61,8 @@ cr run "Design a caching layer for a multi-tenant SaaS app"
 # Fast mode (Builder only, 1 LLM call)
 cr run --mode fast "Name this service"
 
-# Arbitration mode (Builder + all Reviewers in parallel)
-cr run --mode arbitration "Design the auth flow for production"
+# Deep mode (Builder + all Reviewers in parallel)
+cr run --mode deep "Design the auth flow for production"
 
 # JSON output
 cr run --output json "Design a rate limiter"
@@ -82,7 +82,7 @@ cr run --config ./my-config.toml "Review this API design"
 |------|-----------|-------------|
 | `fast` | 1 (Builder only) | Brainstorming, naming, low-risk tasks |
 | `review` | 2 (Builder + Critic) | Design review, API planning, schema choices (default) |
-| `arbitration` | 3 (Builder + Critic + Advisor) | Auth, security, production architecture, migrations |
+| `deep` | 3 (Builder + Critic + Advisor) | Auth, security, production architecture, migrations |
 
 ### Claude Code — Slash Command
 
@@ -260,7 +260,7 @@ pytest tests/test_e2e_ollama.py -v
 ```bash
 export CROSS_REVIEW_BUDGET_MAX_TOTAL_CALLS=6
 export CROSS_REVIEW_BUDGET_HARD_TOKEN_LIMIT=50000
-export CROSS_REVIEW_ROUTER_DEFAULT_MODE=arbitration
+export CROSS_REVIEW_ROUTER_DEFAULT_MODE=deep
 ```
 
 ## Output Formats

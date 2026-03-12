@@ -20,7 +20,7 @@ local reconciliation, and decision-support output.
 1. **Determine mode** from user intent:
    - `fast` — brainstorming, naming, low-risk tasks
    - `review` (default) — design review, API planning, schema choices
-   - `arbitration` — auth, security, production architecture, migrations
+   - `deep` — auth, security, production architecture, migrations
 
 2. **Gather context** if relevant:
    - If a specific file is being discussed, read it and save to a temp file
