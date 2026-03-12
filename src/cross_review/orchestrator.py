@@ -161,7 +161,7 @@ class Orchestrator:
         tracer.record_builder_result(builder_result)
         tracer.emit("builder complete")
 
-        builder_model_name = builder_provider.name()
+        builder_model_name = builder_provider.model_id()
 
         # -- Step 3: fast mode early return -----------------------------------
         if mode == Mode.FAST:
@@ -271,7 +271,8 @@ class Orchestrator:
             )
             reviewer_type = _ROLE_TO_REVIEWER_TYPE.get(role_name, ReviewerType.CRITIC)
             provider = self._provider_factory(role_cfg.provider, role_cfg.model)
-            source_model = provider.name()
+            source_model = provider.model_id()
+            provider_name = provider.name()
 
             raw_output, usage = await with_retry(
                 lambda: provider.call(
@@ -282,7 +283,7 @@ class Orchestrator:
             )
 
             budget_guard.record_call(usage)
-            tracer.record_call(source_model, usage)
+            tracer.record_call(provider_name, usage)
 
             # Parse raw output into validated ReviewerResult
             if isinstance(raw_output, RawReviewerOutput):

@@ -1,6 +1,6 @@
 """Tests for the core orchestrator. Ref: design doc §8, §16."""
 
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, Mock
 
 from cross_review.config import AppConfig, ProviderEntry, RoleConfig
 from cross_review.orchestrator import Orchestrator, RawReviewerOutput
@@ -66,6 +66,7 @@ def _make_mock_provider_factory(fail_reviewer_index: int | None = None):
         factory_counter["n"] += 1
         provider = MagicMock()
         provider.name.return_value = f"{provider_name}:{model}"
+        provider.model_id.return_value = f"{provider_name}:{model}"
 
         if idx == 0:
             # Builder provider
@@ -150,6 +151,7 @@ class TestFastMode:
             captured.append((provider_name, model, providers))
             provider = MagicMock()
             provider.name.return_value = f"{provider_name}:{model or 'default'}"
+            provider.model_id.return_value = f"{provider_name}:{model or 'default'}"
 
             async def builder_call(system_prompt, user_prompt, response_schema, **kwargs):
                 return (_BUILDER_RESULT, _TOKEN_USAGE)
@@ -345,3 +347,53 @@ def request_budget_with_max_reviewers(n: int):
     from cross_review.schemas import BudgetConfig
 
     return BudgetConfig(max_reviewers=n, max_total_calls=10)
+
+
+class TestModelIdUsedInOrchestrator:
+    """model_id() should be used for builder_model and reviewer source_model."""
+
+    async def test_model_id_used_for_builder_model(self):
+        """builder_model and reviewer source_model use model_id(), not name()."""
+        config = AppConfig()
+        events: list[str] = []
+
+        def factory(provider_name: str, model: str):
+            provider = MagicMock()
+            provider.name.return_value = f"{provider_name}"
+            provider.model_id = Mock(return_value=f"{provider_name}/{model}")
+
+            async def builder_call(system_prompt, user_prompt, response_schema, **kwargs):
+                return (_BUILDER_RESULT, _TOKEN_USAGE)
+
+            async def reviewer_call(system_prompt, user_prompt, response_schema, **kwargs):
+                return (_REVIEWER_OUTPUT, _TOKEN_USAGE)
+
+            if response_schema_dispatch := True:
+                # Dispatch based on call order using side_effect
+                async def dispatch_call(system_prompt, user_prompt, response_schema, **kwargs):
+                    if response_schema is BuilderResult or (
+                        hasattr(response_schema, "__name__")
+                        and "Builder" in response_schema.__name__
+                    ):
+                        return (_BUILDER_RESULT, _TOKEN_USAGE)
+                    else:
+                        return (_REVIEWER_OUTPUT, _TOKEN_USAGE)
+
+                provider.call = AsyncMock(side_effect=dispatch_call)
+
+            return provider
+
+        orch = Orchestrator(config, provider_factory=factory, on_event=events.append)
+
+        request = ReviewRequest(question="Test question", mode=Mode.REVIEW)
+        result = await orch.run(request)
+
+        # builder_model should use model_id() format (provider/model)
+        assert "/" in result.builder_model, (
+            f"Expected compound model id with '/' but got: {result.builder_model}"
+        )
+        # Reviewer source_model should also use model_id
+        for rs in result.reviewer_summaries:
+            assert "/" in rs.model, (
+                f"Expected compound model id with '/' but got: {rs.model}"
+            )

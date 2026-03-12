@@ -93,6 +93,7 @@ def _make_mock_provider_factory():
         mock = MagicMock()
         mock.call = mock_call  # Use the real async function, not AsyncMock
         mock.name.return_value = f"{provider_name}:{model}"
+        mock.model_id.return_value = f"{provider_name}:{model}"
         return mock
 
     factory.call_log = call_log  # type: ignore[attr-defined]
