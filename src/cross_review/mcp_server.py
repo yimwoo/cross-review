@@ -429,14 +429,7 @@ def run_server() -> None:
             key, lambda: handle_cross_review(arguments, server=server)
         )
 
-        # Embed session metadata in the response so it doesn't appear
-        # as a separate raw JSON block in the host UI.
-        session_id = result["session_id"]
         text = result["text"]
-        if not text.rstrip().endswith("---"):
-            text = text.rstrip() + "\n\n---\n"
-        text += f"\n*Session: {session_id}*\n"
-
         return [TextContent(type="text", text=text)]
 
     init_options = server.create_initialization_options()

@@ -140,42 +140,47 @@ def _render_markdown_findings(result: FinalResult) -> list[str]:
     return lines
 
 
-def _render_markdown_footer(result: FinalResult) -> list[str]:
+def _render_markdown_footer(result: FinalResult, verbose: bool = False) -> list[str]:
     """Render the summary and trace footer of the Markdown output.
 
     Args:
         result: The final review result.
+        verbose: If True, include the trace diagnostics line.
 
     Returns:
         Lines for the summary and footer section.
     """
-    trace = result.trace
-    providers = ", ".join(trace.providers_used) if trace.providers_used else "none"
-    warning_suffix = f", warnings: {'; '.join(trace.warnings)}" if trace.warnings else ""
-    return [
+    lines = [
         "## Summary",
         "",
         result.final_recommendation,
         "",
-        "---",
-        "",
-        (
-            f"*Trace: {trace.total_calls} calls, "
-            f"{trace.total_tokens_actual} tokens, "
-            f"providers: {providers}{warning_suffix}*"
-        ),
-        "",
     ]
+    if verbose:
+        trace = result.trace
+        providers = ", ".join(trace.providers_used) if trace.providers_used else "none"
+        warning_suffix = f", warnings: {'; '.join(trace.warnings)}" if trace.warnings else ""
+        lines.extend([
+            "---",
+            "",
+            (
+                f"*Trace: {trace.total_calls} calls, "
+                f"{trace.total_tokens_actual} tokens, "
+                f"providers: {providers}{warning_suffix}*"
+            ),
+            "",
+        ])
+    return lines
 
 
-def render_markdown(result: FinalResult) -> str:
+def render_markdown(result: FinalResult, verbose: bool = False) -> str:
     """Render the final result as a human-readable Markdown document."""
     lines: list[str] = []
     lines.extend(_render_markdown_header(result))
     lines.extend(_render_markdown_builder(result))
     lines.extend(_render_markdown_perspectives(result))
     lines.extend(_render_markdown_findings(result))
-    lines.extend(_render_markdown_footer(result))
+    lines.extend(_render_markdown_footer(result, verbose=verbose))
     return "\n".join(lines)
 
 
@@ -192,7 +197,7 @@ def render_summary(result: FinalResult) -> str:
     )
 
 
-def render(result: FinalResult, output_format: str = "markdown") -> str:
+def render(result: FinalResult, output_format: str = "markdown", verbose: bool = False) -> str:
     """Dispatch to the appropriate renderer based on *output_format*.
 
     Supported formats: ``"json"``, ``"markdown"``, ``"summary"``.
@@ -200,6 +205,7 @@ def render(result: FinalResult, output_format: str = "markdown") -> str:
     Args:
         result: The final review result to render.
         output_format: One of ``"json"``, ``"markdown"``, ``"summary"``.
+        verbose: If True, include trace diagnostics (markdown only).
 
     Returns:
         The rendered output string.
@@ -207,16 +213,17 @@ def render(result: FinalResult, output_format: str = "markdown") -> str:
     Raises:
         ValueError: If *output_format* is not recognised.
     """
+    if output_format == "markdown":
+        return render_markdown(result, verbose=verbose)
     dispatchers = {
         "json": render_json,
-        "markdown": render_markdown,
         "summary": render_summary,
     }
     renderer = dispatchers.get(output_format)
     if renderer is None:
         raise ValueError(
             f"Unknown output format {output_format!r}. "
-            f"Choose from: {', '.join(sorted(dispatchers))}"
+            f"Choose from: json, markdown, summary"
         )
     return renderer(result)
 

@@ -48,12 +48,14 @@ def main(ctx: click.Context) -> None:
     default=None,
     help="Path to config.toml.",
 )
+@click.option("--verbose", "-v", is_flag=True, default=False, help="Show trace diagnostics.")
 def run(
     question: str,
     mode: str | None,
     output_format: str,
     context_file: Path | None,
     config_path: Path | None,
+    verbose: bool,
 ) -> None:
     """Run a cross-review on a technical question."""
     config = load_config(config_path=config_path)
@@ -86,7 +88,7 @@ def run(
         click.echo(f"Error: {e}", err=True)
         sys.exit(1)
 
-    click.echo(render(result, output_format=output_format))
+    click.echo(render(result, output_format=output_format, verbose=verbose))
 
 
 @main.command()

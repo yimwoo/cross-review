@@ -138,8 +138,8 @@ class TestE2EHostManagedReview:
         # Should include the builder recommendation
         assert "Redis" in result_text
 
-        # Should include the host-managed warning
-        assert "Single-provider" in result_text
+        # Host-managed warning is in trace.warnings (visible via verbose or JSON)
+        # Default markdown hides trace diagnostics
 
         # Should have made 2 sampling calls (builder + 1 reviewer)
         assert call_count[0] == 2
@@ -160,7 +160,7 @@ class TestE2EHostManagedReview:
         assert "Cross-Review Result" in result_text
         assert "fast" in result_text.lower()
         assert call_count[0] == 1
-        assert "Single-provider" in result_text
+        # Host-managed warning is in trace.warnings (visible via verbose or JSON)
 
     async def test_json_output_via_host_sampling(self, monkeypatch):
         """JSON output format works with host-managed auth."""
@@ -201,7 +201,7 @@ class TestE2EHostManagedReview:
         # In host-managed mode, max_reviewers is capped to 1
         # So arbitration behaves like review: builder + 1 reviewer = 2 calls
         assert call_count[0] == 2
-        assert "Single-provider" in result_text
+        # Host-managed warning is in trace.warnings (visible via verbose or JSON)
 
 
 class TestE2EHostManagedFallback:
@@ -220,9 +220,8 @@ class TestE2EHostManagedFallback:
             server=server,
         ))["text"]
 
-        # Should work (no error) and show host-managed warning
+        # Should work (no error); host-managed warning is in trace.warnings
         assert "Error" not in result_text
-        assert "Single-provider" in result_text
 
     async def test_auto_prefers_provider_managed_with_keys(self, monkeypatch):
         """With API keys set, auto → provider_managed even with server present."""

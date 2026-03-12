@@ -228,7 +228,7 @@ class TestHostManagedAuth:
             assert len(call_kwargs.args) >= 2 or "provider_factory" in (call_kwargs.kwargs or {})
 
     async def test_host_managed_warning_in_output(self, mock_orchestrator, monkeypatch, tmp_path):
-        """Host-managed mode should include a warning in the output."""
+        """Host-managed mode should include a warning in the JSON output."""
         monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
         monkeypatch.delenv("OPENAI_API_KEY", raising=False)
         monkeypatch.delenv("GEMINI_API_KEY", raising=False)
@@ -240,13 +240,14 @@ class TestHostManagedAuth:
         with patch("cross_review.mcp_server.can_resolve_credentials", return_value=True), \
              patch("cross_review.mcp_server.Orchestrator", return_value=mock_orchestrator):
             result = await handle_cross_review(
-                {"question": "Test"},
+                {"question": "Test", "output_format": "json"},
                 server=mock_server,
                 session_store=store,
             )
 
-        text = result["text"]
-        assert "Single-provider" in text or "single-provider" in text
+        parsed = json.loads(result["text"])
+        assert any("Single-provider" in w or "single-provider" in w
+                    for w in parsed["trace"]["warnings"])
 
     async def test_provider_managed_when_keys_set(self, mock_orchestrator, monkeypatch, tmp_path):
         """When API keys are set, should use provider_managed even with server."""

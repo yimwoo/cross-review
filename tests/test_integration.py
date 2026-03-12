@@ -12,7 +12,7 @@ from unittest.mock import MagicMock
 
 from cross_review.config import AppConfig
 from cross_review.orchestrator import Orchestrator, RawReviewerOutput
-from cross_review.rendering import render_json, render_markdown, render_summary
+from cross_review.rendering import render, render_json, render_markdown, render_summary
 from cross_review.schemas import (
     BuilderResult,
     Confidence,
@@ -20,6 +20,7 @@ from cross_review.schemas import (
     Mode,
     ReviewRequest,
     TokenUsage,
+    Trace,
 )
 
 
@@ -398,3 +399,54 @@ class TestFullPipelineFastMode:
         # 1 call x 1500 tokens
         assert result.trace.total_tokens_actual == 1500
         assert result.trace.total_calls == 1
+
+
+# ---------------------------------------------------------------------------
+# Verbose / trace rendering
+# ---------------------------------------------------------------------------
+
+
+def _build_final_result(**overrides) -> FinalResult:
+    """Build a minimal FinalResult for rendering tests."""
+    defaults = dict(
+        request_id="test-verbose",
+        mode=Mode.REVIEW,
+        selected_roles=[],
+        consensus_findings=[],
+        conflicting_findings=[],
+        likely_shortcuts=[],
+        final_recommendation="Use approach A.",
+        decision_points=[],
+        trace=Trace(total_calls=2, total_tokens_actual=3000, providers_used=["anthropic"]),
+        confidence=Confidence.HIGH,
+    )
+    defaults.update(overrides)
+    return FinalResult(**defaults)
+
+
+class TestVerboseRendering:
+    """Trace footer should be hidden by default and shown with verbose=True."""
+
+    def test_render_markdown_hides_trace_by_default(self):
+        """Trace line should not appear in default markdown output."""
+        result = _build_final_result()
+        md = render_markdown(result)
+        assert "Trace:" not in md
+
+    def test_render_markdown_shows_trace_when_verbose(self):
+        """Trace line should appear when verbose=True."""
+        result = _build_final_result()
+        md = render_markdown(result, verbose=True)
+        assert "Trace:" in md
+
+    def test_render_dispatcher_passes_verbose_to_markdown(self):
+        """render() with verbose=True should include trace in markdown."""
+        result = _build_final_result()
+        md = render(result, output_format="markdown", verbose=True)
+        assert "Trace:" in md
+
+    def test_render_dispatcher_default_hides_trace(self):
+        """render() without verbose should hide trace in markdown."""
+        result = _build_final_result()
+        md = render(result, output_format="markdown")
+        assert "Trace:" not in md
