@@ -36,6 +36,7 @@ class TestCLIGroup:
         assert "--output" in result.output
         assert "--context-file" in result.output
         assert "--config" in result.output
+        assert "--verbose" in result.output
 
     def test_run_accepts_question_argument(self):
         """run subcommand should accept a positional question argument."""
