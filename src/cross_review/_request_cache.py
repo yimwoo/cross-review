@@ -52,16 +52,13 @@ def coalescing_key(
 ) -> str | None:
     """Compute a broad key for in-flight coalescing.
 
-    Uses only file paths + mode — ignores exact question text, context, and
-    file content.  This catches the common case where a host (e.g. Cline)
-    fires two calls for the same file with slightly rephrased questions.
+    Uses only file paths + mode — ignores exact question text, context,
+    file content, and ``new_session``.  This catches the common case where
+    a host (e.g. Cline) fires two calls for the same file with slightly
+    rephrased questions (sometimes with ``new_session=true`` on one of them).
 
-    Returns ``None`` when there are no files (no basis for coalescing) or
-    when ``new_session=true``.
+    Returns ``None`` when there are no files (no basis for coalescing).
     """
-    if arguments.get("new_session", False):
-        return None
-
     paths = _file_paths(arguments, workspace_root)
     if not paths:
         return None  # no files → no basis for broad coalescing

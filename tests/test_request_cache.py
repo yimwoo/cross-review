@@ -132,9 +132,17 @@ class TestCoalescingKey:
         """No-files requests return None (no basis for coalescing)."""
         assert coalescing_key({"question": "Review this", "mode": "review"}) is None
 
-    def test_new_session_returns_none(self):
-        args = {"question": "q", "new_session": True, "files": [{"path": "a.md"}]}
-        assert coalescing_key(args) is None
+    def test_new_session_still_coalesces(self):
+        """new_session is ignored for coalescing (catches Cline duplicate pattern)."""
+        a = coalescing_key(
+            {"question": "q", "mode": "review", "files": [{"path": "a.md"}]},
+        )
+        b = coalescing_key(
+            {"question": "q2", "mode": "review", "new_session": True,
+             "files": [{"path": "a.md"}]},
+        )
+        assert a is not None
+        assert a == b
 
 
 # ---------------------------------------------------------------------------
