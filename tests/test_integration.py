@@ -12,7 +12,13 @@ from unittest.mock import MagicMock
 
 from cross_review.config import AppConfig
 from cross_review.orchestrator import Orchestrator, RawReviewerOutput
-from cross_review.rendering import render, render_json, render_markdown, render_summary
+from cross_review.rendering import (
+    _format_prose,
+    render,
+    render_json,
+    render_markdown,
+    render_summary,
+)
 from cross_review.schemas import (
     BuilderResult,
     Confidence,
@@ -449,3 +455,63 @@ class TestVerboseRendering:
         result = _build_final_result()
         md = render(result, output_format="markdown")
         assert "Trace:" not in md
+
+
+class TestFormatProse:
+    """Tests for _format_prose inline-list reformatting."""
+
+    def test_numbered_items(self):
+        text = "Gate on: (1) add validation; (2) define semantics; (3) fix tests."
+        result = _format_prose(text)
+        assert "1. add validation" in result
+        assert "2. define semantics" in result
+        assert "3. fix tests" in result
+        # Intro is preserved
+        assert result.startswith("Gate on")
+
+    def test_numbered_with_trailing_section(self):
+        text = (
+            "Do: (1) first thing; (2) second thing. "
+            "Actionable findings: do X; do Y; do Z."
+        )
+        result = _format_prose(text)
+        assert "1. first thing" in result
+        assert "2. second thing" in result
+        assert "**Actionable findings:**" in result
+        assert "- do X" in result
+        assert "- do Y" in result
+        assert "- do Z" in result
+
+    def test_plain_text_unchanged(self):
+        text = "This is a simple recommendation."
+        assert _format_prose(text) == text
+
+    def test_no_false_positive_on_parenthesized_numbers(self):
+        """Single parenthesized number in normal prose should still trigger."""
+        text = "Consider (1) adding tests."
+        result = _format_prose(text)
+        assert "1. adding tests" in result
+
+    def test_builder_recommendation_in_markdown(self):
+        """Builder Recommendation section should use formatted lists."""
+        builder = BuilderResult(
+            summary="Fix things",
+            recommendation="Fix these: (1) add auth; (2) add logging; (3) add tests.",
+            assumptions=[],
+            alternatives=[],
+            risks=[],
+            open_questions=[],
+            confidence=Confidence.HIGH,
+        )
+        result = _build_final_result(
+            trace=Trace(
+                total_calls=2,
+                total_tokens_actual=3000,
+                providers_used=["anthropic"],
+                builder_result=builder,
+            ),
+        )
+        md = render_markdown(result)
+        assert "1. add auth" in md
+        assert "2. add logging" in md
+        assert "3. add tests" in md

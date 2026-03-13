@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import re
+
 from cross_review.schemas import FinalResult, Finding, ReconciledCluster
 
 
@@ -30,6 +32,86 @@ def _render_markdown_header(result: FinalResult) -> list[str]:
     ]
 
 
+def _format_prose(text: str) -> str:
+    """Reformat inline numbered items and semicolon-lists into markdown lists.
+
+    Handles two common LLM output patterns:
+
+    1. Inline numbered items::
+
+        ...intro: (1) first; (2) second; (3) third.
+
+       Becomes a numbered markdown list.
+
+    2. Semicolon-separated items after a heading phrase like
+       ``Actionable findings:``::
+
+        Actionable findings: do X; do Y; do Z.
+
+       Becomes a bulleted markdown list under a bold heading.
+    """
+    # --- Phase 1: numbered items "(1) ... ; (2) ... ; (3) ..." ---
+    # Split on (N) markers while keeping the number.
+    parts = re.split(r"\((\d+)\)\s*", text)
+
+    if len(parts) >= 3:  # at least one numbered item found
+        intro = parts[0].rstrip(":; \t")
+        items: list[str] = []
+        for i in range(1, len(parts), 2):
+            num = parts[i]
+            body = parts[i + 1].strip().rstrip(";") if i + 1 < len(parts) else ""
+            if body:
+                items.append((num, body))
+
+        # Check if the last item contains a trailing "Heading: a; b; c"
+        # section (e.g. "Actionable findings: ...").
+        trailing_section = ""
+        if items:
+            last_num, last_body = items[-1]
+            # Look for a sentence break followed by a capitalised heading + colon
+            heading_match = re.search(
+                r"(?<=[.!?])\s+([A-Z][^:]{2,50}):\s*(.+)", last_body
+            )
+            if heading_match:
+                items[-1] = (last_num, last_body[: heading_match.start()].rstrip(". "))
+                heading = heading_match.group(1).strip()
+                semi_items = heading_match.group(2).strip()
+                trailing_section = _format_semicolon_list(heading, semi_items)
+
+        # Build formatted output
+        out_lines = [intro, ""]
+        for num, body in items:
+            # Clean trailing period/semicolon from each item
+            body = body.rstrip(";. ")
+            out_lines.append(f"{num}. {body}")
+        out_lines.append("")
+
+        if trailing_section:
+            out_lines.append(trailing_section)
+            out_lines.append("")
+
+        return "\n".join(out_lines)
+
+    # --- Phase 2: standalone semicolon-list  "Heading: a; b; c" ---
+    # Only if no numbered items were found, check for a heading pattern.
+    heading_match = re.match(r"^([A-Z][^:]{2,60}):\s*(.+)", text, re.DOTALL)
+    if heading_match:
+        content = heading_match.group(2).strip()
+        if content.count(";") >= 2:
+            return _format_semicolon_list(heading_match.group(1), content)
+
+    return text
+
+
+def _format_semicolon_list(heading: str, items_text: str) -> str:
+    """Convert ``heading: a; b; c`` into a bulleted markdown list."""
+    items = [s.strip().rstrip(".") for s in items_text.split(";") if s.strip()]
+    lines = [f"**{heading}:**", ""]
+    for item in items:
+        lines.append(f"- {item}")
+    return "\n".join(lines)
+
+
 def _render_markdown_builder(result: FinalResult) -> list[str]:
     """Render the Builder Recommendation section of the Markdown output.
 
@@ -43,7 +125,8 @@ def _render_markdown_builder(result: FinalResult) -> list[str]:
     if builder is None:
         return []
 
-    lines: list[str] = ["## Builder Recommendation", "", builder.recommendation, ""]
+    formatted_rec = _format_prose(builder.recommendation)
+    lines: list[str] = ["## Builder Recommendation", "", formatted_rec, ""]
     if builder.assumptions:
         lines.append("**Assumptions:**")
         lines.append("")
@@ -150,10 +233,18 @@ def _render_markdown_footer(result: FinalResult, verbose: bool = False) -> list[
     Returns:
         Lines for the summary and footer section.
     """
+    formatted_rec = _format_prose(
+        result.final_recommendation.split("\n", 1)[0]  # prose line only
+    )
+    # Re-append the bullet stats (lines after the first)
+    rest = result.final_recommendation.split("\n", 1)
+    if len(rest) > 1:
+        formatted_rec += "\n" + rest[1]
+
     lines = [
         "## Summary",
         "",
-        result.final_recommendation,
+        formatted_rec,
         "",
     ]
     if verbose:
