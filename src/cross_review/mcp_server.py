@@ -137,6 +137,38 @@ def _build_oca_config_from_env(token: str) -> AppConfig:
 
 
 # ---------------------------------------------------------------------------
+# Argument normalisation
+# ---------------------------------------------------------------------------
+
+
+def _normalise_arguments(arguments: dict[str, Any]) -> dict[str, Any]:
+    """Normalise tool arguments so downstream code sees a consistent shape.
+
+    Cline (and potentially other hosts) sometimes passes file info as
+    top-level ``path``/``content`` fields instead of the ``files`` array.
+    This function folds those into ``files`` so that the handler, the
+    fingerprint, and the coalescing key all see the same data.
+    """
+    args = dict(arguments)  # shallow copy — don't mutate caller's dict
+
+    top_path = args.pop("path", None)
+    top_content = args.pop("content", None)
+
+    if top_path:
+        files: list[dict[str, str]] = list(args.get("files", []))
+        entry: dict[str, str] = {"path": top_path}
+        if top_content:
+            entry["content"] = top_content
+        # Only add if not already present
+        existing_paths = {f.get("path", "") for f in files}
+        if top_path not in existing_paths:
+            files.append(entry)
+        args["files"] = files
+
+    return args
+
+
+# ---------------------------------------------------------------------------
 # Tool handler (called by MCP server or directly in tests)
 # ---------------------------------------------------------------------------
 
@@ -427,12 +459,16 @@ def run_server() -> None:
                 fingerprint,
             )
 
-            workspace_root = Path(arguments.get("_workspace", "")).resolve() or Path.cwd()
-            key = fingerprint(arguments, workspace_root=workspace_root)
-            coal_key = coalescing_key(arguments, workspace_root=workspace_root)
+            # Normalise before fingerprinting and handling so top-level
+            # path/content is folded into the files array consistently.
+            args = _normalise_arguments(arguments)
+
+            workspace_root = Path(args.get("_workspace", "")).resolve() or Path.cwd()
+            key = fingerprint(args, workspace_root=workspace_root)
+            coal_key = coalescing_key(args, workspace_root=workspace_root)
             result = await _dedup_cache.get_or_run(
                 key,
-                lambda: handle_cross_review(arguments, server=server),
+                lambda: handle_cross_review(args, server=server),
                 coalesce_key=coal_key,
             )
 

@@ -6,9 +6,58 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from cross_review.mcp_server import TOOL_DEFINITION, handle_cross_review, run_server
+from cross_review.mcp_server import (
+    TOOL_DEFINITION,
+    _normalise_arguments,
+    handle_cross_review,
+    run_server,
+)
 from cross_review.schemas import Confidence, FinalResult, Mode, Trace
 from cross_review.sessions import SessionStore
+
+
+class TestNormaliseArguments:
+    """Tests for argument normalisation (Cline compat)."""
+
+    def test_top_level_path_folded_into_files(self):
+        args = _normalise_arguments({
+            "question": "q",
+            "path": "design.md",
+            "content": "# Doc",
+        })
+        assert args["files"] == [{"path": "design.md", "content": "# Doc"}]
+        assert "path" not in args
+        assert "content" not in args
+
+    def test_top_level_path_without_content(self):
+        args = _normalise_arguments({"question": "q", "path": "a.md"})
+        assert args["files"] == [{"path": "a.md"}]
+
+    def test_no_duplicate_if_already_in_files(self):
+        args = _normalise_arguments({
+            "question": "q",
+            "path": "a.md",
+            "files": [{"path": "a.md"}],
+        })
+        assert len(args["files"]) == 1
+
+    def test_appends_if_different_path(self):
+        args = _normalise_arguments({
+            "question": "q",
+            "path": "b.md",
+            "files": [{"path": "a.md"}],
+        })
+        assert len(args["files"]) == 2
+
+    def test_no_path_no_change(self):
+        original = {"question": "q", "files": [{"path": "a.md"}]}
+        args = _normalise_arguments(original)
+        assert args["files"] == [{"path": "a.md"}]
+
+    def test_does_not_mutate_original(self):
+        original = {"question": "q", "path": "a.md"}
+        _normalise_arguments(original)
+        assert "path" in original  # original unchanged
 
 
 class TestToolDefinition:
