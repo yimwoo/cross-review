@@ -90,7 +90,7 @@ class BudgetConfig(BaseModel):
     max_reviewers: int = 2
     soft_token_limit: int = 20000
     hard_token_limit: int = 30000
-    orchestration_timeout_seconds: int = 60
+    orchestration_timeout_seconds: int = 180
 
 
 class Preferences(BaseModel):

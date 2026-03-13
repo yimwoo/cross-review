@@ -91,7 +91,7 @@ class ProviderAdapter(Protocol):
         user_prompt: str,
         response_schema: Type[BaseModel],
         max_tokens: int = 4096,
-        timeout: float = 30.0,
+        timeout: float = 90.0,
     ) -> tuple[BaseModel, TokenUsage]:
         """Send a prompt and return a validated response with token usage."""
 

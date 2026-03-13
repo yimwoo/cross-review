@@ -131,7 +131,7 @@ class OpenAICompatibleAdapter:
         user_prompt: str,
         response_schema: Type[BaseModel],
         max_tokens: int = 4096,
-        timeout: float = 30.0,
+        timeout: float = 90.0,
     ) -> tuple[BaseModel, TokenUsage]:
         """Send a prompt and validate a JSON response."""
         schema_json = json.dumps(response_schema.model_json_schema(), indent=2)

@@ -100,7 +100,7 @@ class SamplingAdapter:
         user_prompt: str,
         response_schema: Type[BaseModel],
         max_tokens: int = 4096,
-        timeout: float = 30.0,  # pylint: disable=unused-argument
+        timeout: float = 90.0,  # pylint: disable=unused-argument
     ) -> tuple[BaseModel, TokenUsage]:
         """Send a prompt via MCP sampling and return a validated response.
 

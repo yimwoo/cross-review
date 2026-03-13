@@ -135,8 +135,8 @@ After installing, restart Cline and use it from chat:
 | Role | Model | Family | Why |
 |------|-------|--------|-----|
 | Builder | `oca/gpt-5.4` | GPT | Strongest code generation and reasoning |
-| Critic | `oca/grok4` | Grok (xAI) | Different training data, good at finding flaws |
-| Advisor | `oca/llama4` | Llama (Meta) | Third perspective, catches different blind spots |
+| Critic | `oca/llama4` | Llama (Meta) | Fast, catches different blind spots |
+| Advisor | `oca/gpt-5.4` | GPT | Thorough second perspective on review findings |
 
 Using different model families is the key value of cross-review — same-family models share blind spots.
 
@@ -145,8 +145,8 @@ Using different model families is the key value of cross-review — same-family 
 ```bash
 # Per-role overrides
 export OCA_MODEL_BUILDER=oca/gpt-5.4
-export OCA_MODEL_CRITIC=oca/grok4
-export OCA_MODEL_ADVISOR=oca/llama4
+export OCA_MODEL_CRITIC=oca/llama4
+export OCA_MODEL_ADVISOR=oca/gpt-5.4
 
 # Or set all roles to the same model
 export OCA_MODEL=oca/openai-o3
@@ -238,11 +238,11 @@ model = "oca/gpt-5.4"
 
 [roles.critic]
 provider = "oca"
-model = "oca/grok4"
+model = "oca/llama4"
 
 [roles.advisor]
 provider = "oca"
-model = "oca/llama4"
+model = "oca/gpt-5.4"
 ```
 
 If both `api_key_env` and `api_key_file` are configured, `cross-review` prefers the environment variable and falls back to the file. This keeps OAuth/login logic outside the CLI while still supporting long-lived plugin integrations.

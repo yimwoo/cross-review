@@ -51,7 +51,7 @@ class TestDefaultConfig:
         assert cfg.budget.max_reviewers == 2
         assert cfg.budget.soft_token_limit == 20_000
         assert cfg.budget.hard_token_limit == 30_000
-        assert cfg.budget.orchestration_timeout_seconds == 60
+        assert cfg.budget.orchestration_timeout_seconds == 180
 
     def test_default_roles_has_builder(self):
         cfg = AppConfig()
