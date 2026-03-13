@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from cross_review._request_cache import RequestCache, fingerprint
+from cross_review._request_cache import RequestCache, coalescing_key, fingerprint
 
 
 # ---------------------------------------------------------------------------
@@ -61,6 +61,80 @@ class TestFingerprint:
         a = fingerprint({"question": "q", "constraints": ["a"]})
         b = fingerprint({"question": "q", "constraints": ["b"]})
         assert a != b
+
+
+# ---------------------------------------------------------------------------
+# coalescing_key tests
+# ---------------------------------------------------------------------------
+
+
+class TestCoalescingKey:
+    def test_same_files_same_mode_same_key(self, tmp_path: Path):
+        """Different questions but same file + mode → same coalescing key."""
+        f = tmp_path / "design.md"
+        f.write_text("content")
+        a = coalescing_key(
+            {"question": "Review this", "mode": "review",
+             "files": [{"path": str(f)}]},
+            workspace_root=tmp_path,
+        )
+        b = coalescing_key(
+            {"question": "Thoroughly review this for risks", "mode": "review",
+             "files": [{"path": str(f)}]},
+            workspace_root=tmp_path,
+        )
+        assert a == b
+
+    def test_different_mode_different_key(self, tmp_path: Path):
+        f = tmp_path / "design.md"
+        f.write_text("content")
+        a = coalescing_key(
+            {"question": "q", "mode": "fast",
+             "files": [{"path": str(f)}]},
+            workspace_root=tmp_path,
+        )
+        b = coalescing_key(
+            {"question": "q", "mode": "deep",
+             "files": [{"path": str(f)}]},
+            workspace_root=tmp_path,
+        )
+        assert a != b
+
+    def test_different_files_different_key(self, tmp_path: Path):
+        (tmp_path / "a.md").write_text("a")
+        (tmp_path / "b.md").write_text("b")
+        a = coalescing_key(
+            {"question": "q", "files": [{"path": str(tmp_path / "a.md")}]},
+            workspace_root=tmp_path,
+        )
+        b = coalescing_key(
+            {"question": "q", "files": [{"path": str(tmp_path / "b.md")}]},
+            workspace_root=tmp_path,
+        )
+        assert a != b
+
+    def test_ignores_content_vs_path_only(self, tmp_path: Path):
+        """Path-only and content-provided for same path → same coalescing key."""
+        f = tmp_path / "design.md"
+        f.write_text("content")
+        a = coalescing_key(
+            {"question": "q", "files": [{"path": str(f)}]},
+            workspace_root=tmp_path,
+        )
+        b = coalescing_key(
+            {"question": "q", "files": [{"path": str(f), "content": "content"}]},
+            workspace_root=tmp_path,
+        )
+        assert a == b
+
+
+    def test_no_files_returns_none(self):
+        """No-files requests return None (no basis for coalescing)."""
+        assert coalescing_key({"question": "Review this", "mode": "review"}) is None
+
+    def test_new_session_returns_none(self):
+        args = {"question": "q", "new_session": True, "files": [{"path": "a.md"}]}
+        assert coalescing_key(args) is None
 
 
 # ---------------------------------------------------------------------------
@@ -151,3 +225,33 @@ class TestRequestCache:
         r2 = await cache.get_or_run("key-b", coro)
         assert call_count == 2
         assert r1 != r2
+
+    async def test_coalescing_key_dedup(self, cache: RequestCache):
+        """Different strict keys but same coalescing key → one coro run."""
+        call_count = 0
+
+        async def slow_coro():
+            nonlocal call_count
+            call_count += 1
+            await asyncio.sleep(0.1)
+            return {"text": "result"}
+
+        r1, r2 = await asyncio.gather(
+            cache.get_or_run("strict-1", slow_coro, coalesce_key="same-coal"),
+            cache.get_or_run("strict-2", slow_coro, coalesce_key="same-coal"),
+        )
+        assert call_count == 1
+        assert r1 is r2
+
+    async def test_coalescing_key_different_coal_keys(self, cache: RequestCache):
+        """Different coalescing keys → independent runs."""
+        call_count = 0
+
+        async def coro():
+            nonlocal call_count
+            call_count += 1
+            return {"text": f"r{call_count}"}
+
+        r1 = await cache.get_or_run("s1", coro, coalesce_key="coal-a")
+        r2 = await cache.get_or_run("s2", coro, coalesce_key="coal-b")
+        assert call_count == 2

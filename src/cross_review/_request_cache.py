@@ -22,6 +22,58 @@ from pathlib import Path
 from typing import Any, Awaitable, Callable
 
 
+def _file_paths(
+    arguments: dict[str, Any],
+    workspace_root: Path | None = None,
+) -> list[str]:
+    """Extract normalised file paths from arguments (for coalescing key)."""
+    paths: list[str] = []
+    for f in arguments.get("files", []):
+        path_str = f.get("path", "")
+        if path_str and workspace_root is not None:
+            try:
+                p = Path(path_str)
+                resolved = (
+                    p.resolve()
+                    if p.is_absolute()
+                    else (workspace_root / p).resolve()
+                )
+                paths.append(str(resolved))
+            except (OSError, ValueError):
+                paths.append(path_str)
+        elif path_str:
+            paths.append(path_str)
+    return sorted(paths)
+
+
+def coalescing_key(
+    arguments: dict[str, Any],
+    workspace_root: Path | None = None,
+) -> str | None:
+    """Compute a broad key for in-flight coalescing.
+
+    Uses only file paths + mode — ignores exact question text, context, and
+    file content.  This catches the common case where a host (e.g. Cline)
+    fires two calls for the same file with slightly rephrased questions.
+
+    Returns ``None`` when there are no files (no basis for coalescing) or
+    when ``new_session=true``.
+    """
+    if arguments.get("new_session", False):
+        return None
+
+    paths = _file_paths(arguments, workspace_root)
+    if not paths:
+        return None  # no files → no basis for broad coalescing
+
+    parts = (
+        arguments.get("mode", "review"),
+        json.dumps(paths, sort_keys=True),
+    )
+    raw = "\0".join(parts)
+    return "coalesce:" + hashlib.sha256(raw.encode()).hexdigest()
+
+
 def fingerprint(
     arguments: dict[str, Any],
     workspace_root: Path | None = None,
@@ -94,7 +146,16 @@ class _CacheEntry:
 
 
 class RequestCache:
-    """Two-tier in-flight coalescing + short-TTL result cache."""
+    """Two-tier in-flight coalescing + short-TTL result cache.
+
+    Supports two dedup keys per request:
+
+    * **strict key** (``fingerprint``) — includes question text, context, etc.
+      Used for completed-result caching (exact match).
+    * **coalescing key** — based only on file paths + mode.  Used for
+      in-flight dedup so that two calls with different question phrasing
+      but the same files + mode share a single orchestration run.
+    """
 
     def __init__(self, ttl: float = 5.0) -> None:
         self._ttl = ttl
@@ -104,39 +165,54 @@ class RequestCache:
         self,
         key: str,
         coro_factory: Callable[[], Awaitable[Any]],
+        coalesce_key: str | None = None,
     ) -> Any:
         """Return a cached/in-flight result or run *coro_factory*.
 
-        If another call with the same key is in-flight, awaits its result.
-        If a completed result exists within TTL, returns it immediately.
-        Otherwise runs *coro_factory*, caches the result, and returns it.
+        Args:
+            key: Strict fingerprint for completed-result caching.
+            coro_factory: Async callable to produce the result.
+            coalesce_key: Optional broader key for in-flight dedup.
+                If another call with the same *coalesce_key* is currently
+                in-flight, this call awaits that result instead of
+                starting a new orchestration run.
+
+        Returns:
+            The result dict from the handler.
         """
         self._cleanup()
 
+        # 1. Check strict key — completed result still within TTL
         entry = self._entries.get(key)
-
-        # Completed result still within TTL
         if entry is not None and entry.completed_at > 0:
             if (time.monotonic() - entry.completed_at) < self._ttl:
                 return entry.result
 
-        # In-flight — await the same future
+        # 2. Check strict key — in-flight
         if entry is not None and entry.completed_at == 0.0:
             return await entry.future
 
-        # New request — create future and run
+        # 3. Check coalescing key — in-flight (broader match)
+        if coalesce_key is not None:
+            coal_entry = self._entries.get(coalesce_key)
+            if coal_entry is not None and coal_entry.completed_at == 0.0:
+                return await coal_entry.future
+
+        # 4. New request — create future and run
         loop = asyncio.get_running_loop()
         future: asyncio.Future[Any] = loop.create_future()
         entry = _CacheEntry(future)
         self._entries[key] = entry
+        # Also register under the coalescing key so concurrent calls match
+        if coalesce_key is not None:
+            self._entries[coalesce_key] = entry
 
         try:
             result = await coro_factory()
         except BaseException:
-            # Don't cache errors — remove entry and propagate
             self._entries.pop(key, None)
-            # Cancel instead of set_exception to avoid
-            # "Future exception was never retrieved" warnings
+            if coalesce_key is not None:
+                self._entries.pop(coalesce_key, None)
             if not future.done():
                 future.cancel()
             raise

@@ -422,12 +422,18 @@ def run_server() -> None:
             return [TextContent(type="text", text=f"Unknown tool: {name}")]
 
         try:
-            from cross_review._request_cache import fingerprint  # noqa: PLC0415
+            from cross_review._request_cache import (  # noqa: PLC0415
+                coalescing_key,
+                fingerprint,
+            )
 
             workspace_root = Path(arguments.get("_workspace", "")).resolve() or Path.cwd()
             key = fingerprint(arguments, workspace_root=workspace_root)
+            coal_key = coalescing_key(arguments, workspace_root=workspace_root)
             result = await _dedup_cache.get_or_run(
-                key, lambda: handle_cross_review(arguments, server=server)
+                key,
+                lambda: handle_cross_review(arguments, server=server),
+                coalesce_key=coal_key,
             )
 
             text = result["text"]
