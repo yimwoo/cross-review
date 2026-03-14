@@ -124,7 +124,7 @@ For Oracle Code Assist (OCA) users, cross-review integrates with Cline as a nati
 bash scripts/install-cline-mcp.sh
 ```
 
-This installs cross-review with MCP support, configures it as a Cline MCP server, and verifies your OCA token. Works on macOS, Linux, and Windows (Git Bash/WSL).
+This installs cross-review with MCP support, configures it as a Cline MCP server, and verifies your OCA token. Works on macOS, Linux, and Windows under WSL or Git Bash (POSIX environments). Native Windows Python is not supported for the MCP server.
 
 After installing, restart Cline and use it from chat:
 

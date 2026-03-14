@@ -377,11 +377,12 @@ async def handle_cross_review(  # pylint: disable=too-many-locals
     rendered = render(result, output_format=output_format)
 
     # --- Persist round and update memory ---
-    round_num = store.next_round_number(session_id)
+    # round_number=0 is a placeholder; append_round atomically allocates
+    # the real number under an exclusive session lock.
     store.append_round(
         session_id,
         RoundRecord(
-            round_number=round_num,
+            round_number=0,
             request_payload={"question": question, "mode": mode_str,
                              "files": [rf.path for rf in resolved_files]},
             result_payload={"rendered_length": len(rendered),
