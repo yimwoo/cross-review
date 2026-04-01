@@ -16,7 +16,19 @@ Question → Builder (Claude) → Reviewer(s) (OpenAI, Gemini) → Local Reconci
 | Skeptic Reviewer | OpenAI | gpt-5.2 |
 | Pragmatist Reviewer | Gemini | gemini-2.5-pro |
 
+## Requirements
+
+- Python 3.11+
+- One or more provider credentials for cross-model reviews:
+  - `ANTHROPIC_API_KEY`
+  - `OPENAI_API_KEY`
+  - `GEMINI_API_KEY`
+
+If you only configure one provider, `cross-review` still works, but the review will have less model diversity.
+
 ## Installation
+
+### Install from source
 
 ```bash
 git clone https://github.com/yimwoo/cross-review.git
@@ -26,17 +38,25 @@ pip install .
 
 `cross-review` is not currently published on PyPI, so `pip install cross-review` will fail. Install from source instead. The install exposes both `cross-review` and the shorter `cr` command.
 
+### Development install
+
+```bash
+pip install -e "[dev]"
+```
+
+### MCP server support
+
+If you want to run `cross-review` as an MCP server, install the optional MCP dependency:
+
+```bash
+pip install ".[mcp]"
+```
+
 PyPI/TestPyPI release automation is configured in:
 - `.github/workflows/release.yml`
 - `.github/workflows/testpypi.yml`
 
 Maintainer release steps are documented in `docs/releasing.md`.
-
-For development:
-
-```bash
-pip install -e ".[dev]"
-```
 
 ## API Keys
 
@@ -81,6 +101,36 @@ cr run --config ./my-config.toml "Review this API design"
 | `fast` | 1 (Builder only) | Brainstorming, naming, low-risk tasks |
 | `review` | 2 (Builder + Skeptic) | Design review, API planning, schema choices (default) |
 | `arbitration` | 3+ (Builder + all Reviewers) | Auth, security, production architecture, migrations |
+| `auto` | Routed automatically | Let `cross-review` choose based on prompt complexity and risk |
+
+### Output Formats
+
+- **markdown** (default) — human-readable with sections for recommendations, findings, conflicts, and trace info
+- **json** — full structured output, machine-parseable
+- **summary** — single-line compact summary with counts
+
+### MCP Server
+
+Start the MCP server over stdio:
+
+```bash
+cross-review mcp
+```
+
+Example Claude Code MCP config:
+
+```json
+{
+  "mcpServers": {
+    "cross-review": {
+      "command": "cross-review",
+      "args": ["mcp"]
+    }
+  }
+}
+```
+
+When running inside an MCP host that supports sampling, `cross-review` can fall back to **host-managed auth** if provider API keys are not set. In that mode, the host makes the LLM call using its own credentials. This is useful for single-provider review flows, but direct provider API keys are still recommended for true cross-model diversity.
 
 ### Claude Code — Slash Command
 
@@ -190,12 +240,6 @@ export CROSS_REVIEW_BUDGET_MAX_TOTAL_CALLS=6
 export CROSS_REVIEW_BUDGET_HARD_TOKEN_LIMIT=50000
 export CROSS_REVIEW_ROUTER_DEFAULT_MODE=arbitration
 ```
-
-## Output Formats
-
-- **markdown** (default) — human-readable with sections for recommendations, findings, conflicts, and trace info
-- **json** — full structured output, machine-parseable
-- **summary** — single-line compact summary with counts
 
 ## Development
 
