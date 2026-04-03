@@ -56,7 +56,7 @@ PyPI/TestPyPI release automation is configured in:
 - `.github/workflows/release.yml`
 - `.github/workflows/testpypi.yml`
 
-Maintainer release steps are documented in `docs/releasing.md`.
+Maintainer release steps are documented in [`docs/releasing.md`](docs/releasing.md).
 
 ## API Keys
 

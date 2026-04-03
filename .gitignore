@@ -25,7 +25,8 @@ env/
 .ruff_cache/
 
 # Design docs and plans
-docs/
+# Track shipped maintainer docs under docs/
+# (design artifacts should live elsewhere if they should remain untracked)
 
 # Claude Code (local MCP config)
 .mcp.json
